@@ -502,7 +502,7 @@ class MockBackendService {
     }
 
     const data = await response.json();
-
+console.log('LOGIN/API RESPONSE:', data);
     if (data.status === 'error') {
       throw new Error(data.message || 'Terjadi kesalahan pada API');
     }
@@ -873,11 +873,11 @@ class MockBackendService {
         }, 500);
       };
 
-      const handleLogin = (e) => {
+      const handleLogin = async (e) => {
         e.preventDefault();
         setAuthError('');
         try {
-          const { user } = backendService.authenticate(authEmail, authPassword);
+          const { user } = await backendService.authenticate(authEmail, authPassword);
           setCurrentUser(user);
           setActiveTab('dashboard');
           showToast(`Selamat datang kembali, ${user.name}!`, 'success');
@@ -892,19 +892,22 @@ class MockBackendService {
         showToast('Berhasil keluar secara aman', 'info');
       };
 
-      const handleQuickSwitch = (email) => {
-        setAuthEmail(email);
-        setAuthPassword('demo-pass');
-        try {
-          const { user } = backendService.authenticate(email, 'demo-pass');
-          setCurrentUser(user);
-          setActiveTab('dashboard');
-          setSelectedCreatorForDrilldown(null);
-          showToast(`Beralih akun sebagai: ${user.name}`, 'info');
-        } catch (err) {
-          setAuthError(err.message);
-        }
-      };
+      const handleQuickSwitch = async (email) => {
+  setAuthEmail(email);
+
+  const password = 'Director@123';
+  setAuthPassword(password);
+
+  try {
+    const { user } = await backendService.authenticate(email, password);
+    setCurrentUser(user);
+    setActiveTab('dashboard');
+    setSelectedCreatorForDrilldown(null);
+    showToast(`Beralih akun sebagai: ${user.name}`, 'info');
+  } catch (err) {
+    setAuthError(err.message);
+  }
+};
 
       // --- LOGIN VIEW ---
       if (!currentUser) {
