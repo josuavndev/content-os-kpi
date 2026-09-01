@@ -1,0 +1,2074 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Content OS & KPI Real-Time Dashboard (Claymorphism)</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- React 18 & Babel Standalone for Instant In-Browser Preview -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    * {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: #e6ecf5;
+      color: #1e293b;
+      overflow-x: hidden;
+    }
+
+    /* Claymorphic Surface & Cards */
+    .clay-surface {
+      background: #f0f4f9;
+      border-radius: 28px;
+      box-shadow: 12px 12px 24px #cbd5e1, -12px -12px 24px #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .clay-card {
+      background: #ffffff;
+      border-radius: 22px;
+      box-shadow: 8px 8px 16px #cbd5e1, -8px -8px 16px #ffffff,
+                  inset 2px 2px 4px rgba(255, 255, 255, 0.9),
+                  inset -2px -2px 4px rgba(0, 0, 0, 0.03);
+      border: 1.5px solid rgba(255, 255, 255, 0.85);
+    }
+
+    .clay-card-colored {
+      border-radius: 22px;
+      box-shadow: 8px 8px 16px rgba(148, 163, 184, 0.35),
+                  -8px -8px 16px #ffffff,
+                  inset 3px 3px 6px rgba(255, 255, 255, 0.5),
+                  inset -3px -3px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Inset / Depressed Inputs */
+    .clay-inset {
+      background: #e2e8f0;
+      border-radius: 16px;
+      box-shadow: inset 4px 4px 8px #cbd5e1, inset -4px -4px 8px #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+    }
+
+    /* Squishy & Bouncy Tactile Clay Buttons */
+    .clay-btn {
+      border-radius: 18px;
+      box-shadow: 5px 5px 12px #cbd5e1, -5px -5px 12px #ffffff,
+                  inset 2px 2px 3px rgba(255, 255, 255, 0.6),
+                  inset -2px -2px 3px rgba(0, 0, 0, 0.06);
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .clay-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 7px 7px 16px #cbd5e1, -7px -7px 16px #ffffff;
+    }
+
+    .clay-btn:active {
+      transform: translateY(1px) scale(0.98);
+      box-shadow: inset 4px 4px 8px #cbd5e1, inset -4px -4px 8px #ffffff;
+    }
+
+    .clay-pill {
+      border-radius: 9999px;
+      box-shadow: 3px 3px 8px rgba(160, 175, 195, 0.3),
+                  -3px -3px 8px #ffffff,
+                  inset 1px 1px 2px rgba(255, 255, 255, 0.8),
+                  inset -1px -1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #e2e8f0;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useCallback } = React;
+
+    // --- Inline High-Resolution SVG Icons for Zero External Dependency Failure ---
+    const Icon = {
+      Layers: () => <svg className="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>,
+      Dashboard: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>,
+      Calendar: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+      FileText: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+      Chart: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
+      Users: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
+      Sheet: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+      Settings: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+      Refresh: () => <svg className="w-3.5 h-3.5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>,
+      Plus: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>,
+      Search: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
+      Alert: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+      Check: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>,
+      Clock: () => <svg className="w-3.5 h-3.5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+      Shield: () => <svg className="w-3.5 h-3.5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>,
+      User: () => <svg className="w-3.5 h-3.5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
+      LogOut: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>,
+      ChevronLeft: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>,
+      ChevronRight: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>,
+      Close: () => <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+    };
+
+    const INITIAL_USERS = [
+      {
+        user_id: 'usr_dir_01',
+        name: 'Sarah Jenkins',
+        title: 'Creative Director',
+        email: 'director@creative.studio',
+        role: 'creative_director',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        status: 'ACTIVE'
+      },
+      {
+        user_id: 'usr_crt_01',
+        name: 'Alex Rivera',
+        title: 'Senior Motion Creator',
+        email: 'alex@creative.studio',
+        role: 'content_creator',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        status: 'ACTIVE'
+      },
+      {
+        user_id: 'usr_crt_02',
+        name: 'Maya Chen',
+        title: 'Visual Storyteller',
+        email: 'maya@creative.studio',
+        role: 'content_creator',
+        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+        status: 'ACTIVE'
+      },
+      {
+        user_id: 'usr_crt_03',
+        name: 'Jordan Lee',
+        title: '3D & Spline Specialist',
+        email: 'jordan@creative.studio',
+        role: 'content_creator',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+        status: 'ACTIVE'
+      },
+      {
+        user_id: 'usr_crt_04',
+        name: 'Elena Rostova',
+        title: 'Brand Designer & Reels',
+        email: 'elena@creative.studio',
+        role: 'content_creator',
+        avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+        status: 'ACTIVE'
+      }
+    ];
+
+    const INITIAL_CONFIG = {
+      monthlyContentTarget: 35,
+      dailyStoryTarget: 8,
+      views100kTarget: 3,
+      h3SubmissionDays: 3,
+      unexpectedMaxDays: 1,
+      views100kThreshold: 100000,
+      includeStoryInContentCount: false,
+      weights: { process: 30, output: 40, outcome: 30 },
+      syncIntervalSeconds: 30
+    };
+
+    const generateDemoContent = () => {
+      const contentList = [];
+      const makeDate = (day) => `2026-09-${String(day).padStart(2, '0')}`;
+      let idCounter = 100;
+
+      // Alex Rivera (High performer: 28 items, 4 viral hits)
+      for (let i = 1; i <= 28; i++) {
+        const isReel = i % 2 === 0;
+        const isStory = i % 4 === 0;
+        const views = i === 3 ? 145000 : i === 7 ? 220000 : i === 15 ? 115000 : i === 22 ? 180000 : Math.floor(Math.random() * 45000) + 12000;
+        contentList.push({
+          content_id: `CNT-${++idCounter}`,
+          creator_id: 'usr_crt_01',
+          creator_name: 'Alex Rivera',
+          content_title: `Visual Trends & Clay UI Breakdown #${i}`,
+          content_type: isStory ? 'Story' : isReel ? 'Reels' : 'Carousel',
+          platform: isStory ? 'Instagram' : isReel ? 'Instagram' : 'TikTok',
+          brief: 'Focus on modern layout hierarchies and smooth micro-interactions.',
+          publish_date: makeDate(Math.min(i, 28)),
+          publish_time: '18:00',
+          assigned_date: makeDate(Math.max(1, i - 7)),
+          submission_date: makeDate(Math.max(1, i - 4)),
+          actual_publish_date: makeDate(Math.min(i, 28)),
+          status: i <= 22 ? 'PUBLISHED' : i <= 26 ? 'SCHEDULED' : 'IN PRODUCTION',
+          is_unexpected_task: i === 12,
+          cover_status: isReel ? (i === 6 ? 'NEEDS REVISION' : 'OPTIMAL') : 'OPTIMAL',
+          views: views,
+          likes: Math.round(views * 0.08),
+          comments: Math.round(views * 0.012),
+          shares: Math.round(views * 0.02),
+          engagement_rate: 6.8
+        });
+      }
+
+      // Maya Chen (Moderate, Late Submission cases)
+      for (let i = 1; i <= 22; i++) {
+        const isReel = i % 3 === 0;
+        const isStory = i % 5 === 0;
+        const views = i === 5 ? 104000 : Math.floor(Math.random() * 32000) + 8000;
+        const late = i % 3 === 0;
+        contentList.push({
+          content_id: `CNT-${++idCounter}`,
+          creator_id: 'usr_crt_02',
+          creator_name: 'Maya Chen',
+          content_title: `Creative Color Palettes #${i}`,
+          content_type: isStory ? 'Story' : isReel ? 'Reels' : 'Single Post',
+          platform: 'Instagram',
+          brief: 'Deep dive into color palettes and typographic rhythm.',
+          publish_date: makeDate(Math.min(i + 1, 28)),
+          publish_time: '19:30',
+          assigned_date: makeDate(Math.max(1, i - 5)),
+          submission_date: late ? makeDate(Math.min(i + 1, 28)) : makeDate(Math.max(1, i - 4)),
+          actual_publish_date: late ? makeDate(Math.min(i + 2, 29)) : makeDate(Math.min(i + 1, 28)),
+          status: i <= 16 ? 'PUBLISHED' : i <= 20 ? 'SUBMITTED' : 'BRIEF',
+          is_unexpected_task: i === 8 || i === 14,
+          cover_status: isReel ? (i % 2 === 0 ? 'NEEDS REVISION' : 'OPTIMAL') : 'OPTIMAL',
+          views: views,
+          likes: Math.round(views * 0.06),
+          comments: Math.round(views * 0.009),
+          shares: Math.round(views * 0.015),
+          engagement_rate: 4.9
+        });
+      }
+
+      // Jordan Lee (High Volume: 31 items)
+      for (let i = 1; i <= 31; i++) {
+        const isReel = i % 2 === 0;
+        const isStory = i % 3 === 0;
+        const views = i === 4 ? 130000 : i === 11 ? 310000 : i === 18 ? 160000 : i === 25 ? 105000 : Math.floor(Math.random() * 55000) + 15000;
+        contentList.push({
+          content_id: `CNT-${++idCounter}`,
+          creator_id: 'usr_crt_03',
+          creator_name: 'Jordan Lee',
+          content_title: `Motion Graphics Masterclass Part ${i}`,
+          content_type: isStory ? 'Story' : isReel ? 'Reels' : 'Video',
+          platform: i % 2 === 0 ? 'YouTube Shorts' : 'TikTok',
+          brief: 'Clean spline animations and sound design integration.',
+          publish_date: makeDate(Math.min(i, 28)),
+          publish_time: '17:00',
+          assigned_date: makeDate(Math.max(1, i - 8)),
+          submission_date: makeDate(Math.max(1, i - 5)),
+          actual_publish_date: makeDate(Math.min(i, 28)),
+          status: i <= 24 ? 'PUBLISHED' : 'SCHEDULED',
+          is_unexpected_task: i === 9,
+          cover_status: 'OPTIMAL',
+          views: views,
+          likes: Math.round(views * 0.095),
+          comments: Math.round(views * 0.018),
+          shares: Math.round(views * 0.04),
+          engagement_rate: 8.2
+        });
+      }
+
+      // Elena Rostova (Steady Performer)
+      for (let i = 1; i <= 24; i++) {
+        const isReel = i % 2 !== 0;
+        const isStory = i % 4 === 0;
+        const views = i === 8 ? 120000 : i === 19 ? 142000 : Math.floor(Math.random() * 38000) + 10000;
+        contentList.push({
+          content_id: `CNT-${++idCounter}`,
+          creator_id: 'usr_crt_04',
+          creator_name: 'Elena Rostova',
+          content_title: `Brand Identity Spotlight #${i}`,
+          content_type: isStory ? 'Story' : isReel ? 'Reels' : 'Carousel',
+          platform: 'Instagram',
+          brief: 'Minimalist brand packaging and typography case studies.',
+          publish_date: makeDate(Math.min(i + 2, 28)),
+          publish_time: '20:00',
+          assigned_date: makeDate(Math.max(1, i - 6)),
+          submission_date: makeDate(Math.max(1, i - 3)),
+          actual_publish_date: makeDate(Math.min(i + 2, 28)),
+          status: i <= 18 ? 'PUBLISHED' : 'IN PRODUCTION',
+          is_unexpected_task: i === 5,
+          cover_status: isReel ? (i === 1 ? 'NEEDS REVISION' : 'OPTIMAL') : 'OPTIMAL',
+          views: views,
+          likes: Math.round(views * 0.075),
+          comments: Math.round(views * 0.014),
+          shares: Math.round(views * 0.022),
+          engagement_rate: 6.1
+        });
+      }
+
+      return contentList;
+    };
+
+    const KPICalculationEngine = {
+      calculateDeadlineCompliance(contentList) {
+        const applicable = contentList.filter(c => c.actual_publish_date && c.publish_date);
+        if (!applicable.length) return { actual: 100, target: 100, achieved: true, count: 0, total: 0, status: 'ON TRACK' };
+        const onTime = applicable.filter(c => new Date(c.actual_publish_date) <= new Date(c.publish_date)).length;
+        const percentage = Math.round((onTime / applicable.length) * 1000) / 10;
+        return {
+          actual: percentage,
+          target: 100,
+          achieved: percentage >= 100,
+          count: onTime,
+          total: applicable.length,
+          status: percentage >= 100 ? 'ACHIEVED' : percentage >= 90 ? 'ON TRACK' : 'NEEDS ATTENTION'
+        };
+      },
+
+      calculateH3SubmissionCompliance(contentList, h3DaysThreshold = 3) {
+        const applicable = contentList.filter(c => c.submission_date && c.publish_date);
+        if (!applicable.length) return { actual: 100, target: 100, achieved: true, count: 0, total: 0, status: 'ON TRACK' };
+        const compliant = applicable.filter(c => {
+          const pub = new Date(c.publish_date).getTime();
+          const sub = new Date(c.submission_date).getTime();
+          const diffDays = Math.round((pub - sub) / (1000 * 60 * 60 * 24));
+          return diffDays >= h3DaysThreshold;
+        }).length;
+        const percentage = Math.round((compliant / applicable.length) * 1000) / 10;
+        return {
+          actual: percentage,
+          target: 100,
+          achieved: percentage >= 100,
+          count: compliant,
+          total: applicable.length,
+          status: percentage >= 95 ? 'ACHIEVED' : percentage >= 85 ? 'ON TRACK' : 'NEEDS ATTENTION'
+        };
+      },
+
+      calculateUnexpectedTaskCompliance(contentList, maxDays = 1) {
+        const unexpected = contentList.filter(c => c.is_unexpected_task);
+        if (!unexpected.length) return { actual: 100, count: 0, total: 0, status: 'ON TRACK', achieved: true };
+        const completed = unexpected.filter(c => {
+          if (!c.submission_date || !c.assigned_date) return false;
+          const assigned = new Date(c.assigned_date).getTime();
+          const submitted = new Date(c.submission_date).getTime();
+          return Math.round((submitted - assigned) / (1000 * 60 * 60 * 24)) <= maxDays;
+        }).length;
+        const percentage = Math.round((completed / unexpected.length) * 100);
+        return {
+          actual: percentage,
+          count: completed,
+          total: unexpected.length,
+          achieved: completed === unexpected.length,
+          status: percentage === 100 ? 'ACHIEVED' : percentage >= 80 ? 'ON TRACK' : 'NEEDS ATTENTION'
+        };
+      },
+
+      calculateMonthlyContentOutput(contentList, target = 35, includeStory = false) {
+        const valid = contentList.filter(c => {
+          if (!includeStory && c.content_type === 'Story') return false;
+          return ['PUBLISHED', 'SCHEDULED', 'APPROVED'].includes(c.status);
+        });
+        const count = valid.length;
+        const rawAchieve = Math.round((count / target) * 100);
+        return {
+          count,
+          target,
+          percentage: rawAchieve,
+          achieved: count >= target,
+          status: count >= target ? 'ACHIEVED' : count >= target * 0.8 ? 'ON TRACK' : 'NEEDS ATTENTION'
+        };
+      },
+
+      calculateDailyStoryAverage(contentList, target = 8) {
+        const stories = contentList.filter(c => c.content_type === 'Story');
+        const dayMap = {};
+        stories.forEach(s => { dayMap[s.publish_date] = (dayMap[s.publish_date] || 0) + 1; });
+        const daysRecorded = Object.keys(dayMap).length || 1;
+        const dailyAverage = Math.round((stories.length / daysRecorded) * 10) / 10;
+        return {
+          dailyAverage,
+          target,
+          totalStories: stories.length,
+          achieved: dailyAverage >= target,
+          status: dailyAverage >= target ? 'ACHIEVED' : dailyAverage >= target * 0.85 ? 'ON TRACK' : 'NEEDS ATTENTION'
+        };
+      },
+
+      calculateOptimalReelsCoverRate(contentList) {
+        const reels = contentList.filter(c => c.content_type === 'Reels');
+        if (!reels.length) return { actual: 100, optimalCount: 0, totalReels: 0, achieved: true, status: 'ON TRACK' };
+        const optimal = reels.filter(c => c.cover_status === 'OPTIMAL').length;
+        const percentage = Math.round((optimal / reels.length) * 1000) / 10;
+        return {
+          actual: percentage,
+          optimalCount: optimal,
+          totalReels: reels.length,
+          achieved: percentage >= 90,
+          status: percentage >= 90 ? 'ACHIEVED' : percentage >= 75 ? 'ON TRACK' : 'NEEDS ATTENTION'
+        };
+      },
+
+      calculate100KViewsCount(contentList, threshold = 100000, target = 3) {
+        const hits = contentList.filter(c => (Number(c.views) || 0) >= threshold);
+        const count = hits.length;
+        return {
+          count,
+          target,
+          percentage: Math.round((count / target) * 100),
+          achieved: count >= target,
+          status: count >= target ? 'ACHIEVED' : count >= 2 ? 'ON TRACK' : 'NEEDS ATTENTION',
+          viralContents: hits
+        };
+      },
+
+      calculateOverallKPI(metrics, weights = { process: 30, output: 40, outcome: 30 }) {
+        const processScore = (Math.min(metrics.deadline.actual, 100) * 0.5) + (Math.min(metrics.h3.actual, 100) * 0.5);
+        const contentScore = Math.min((metrics.contentOutput.count / metrics.contentOutput.target) * 100, 100);
+        const storyScore = Math.min((metrics.stories.dailyAverage / metrics.stories.target) * 100, 100);
+        const coverScore = Math.min(metrics.reelsCover.actual, 100);
+        const outputScore = (contentScore * 0.4) + (storyScore * 0.3) + (coverScore * 0.3);
+        const outcomeScore = Math.min((metrics.views100k.count / metrics.views100k.target) * 100, 100);
+
+        const totalWeight = (weights.process || 30) + (weights.output || 40) + (weights.outcome || 30);
+        const finalScore = Math.round(
+          ((processScore * weights.process) + (outputScore * weights.output) + (outcomeScore * weights.outcome)) / totalWeight
+        );
+
+        let status = 'NEEDS ATTENTION';
+        if (finalScore >= 90) status = 'ACHIEVED';
+        else if (finalScore >= 75) status = 'ON TRACK';
+        else if (finalScore >= 60) status = 'WARNING';
+
+        return {
+          score: finalScore,
+          status,
+          processScore: Math.round(processScore),
+          outputScore: Math.round(outputScore),
+          outcomeScore: Math.round(outcomeScore)
+        };
+      },
+
+      evaluateCreator(contentList, config = INITIAL_CONFIG) {
+        const deadline = this.calculateDeadlineCompliance(contentList);
+        const h3 = this.calculateH3SubmissionCompliance(contentList, config.h3SubmissionDays);
+        const unexpected = this.calculateUnexpectedTaskCompliance(contentList, config.unexpectedMaxDays);
+        const contentOutput = this.calculateMonthlyContentOutput(contentList, config.monthlyContentTarget, config.includeStoryInContentCount);
+        const stories = this.calculateDailyStoryAverage(contentList, config.dailyStoryTarget);
+        const reelsCover = this.calculateOptimalReelsCoverRate(contentList);
+        const views100k = this.calculate100KViewsCount(contentList, config.views100kThreshold, config.views100kTarget);
+
+        const metrics = { deadline, h3, unexpected, contentOutput, stories, reelsCover, views100k };
+        const overall = this.calculateOverallKPI(metrics, config.weights);
+        return { ...metrics, overall };
+      }
+    };
+
+    class MockBackendService {
+      constructor() {
+        this.users = [...INITIAL_USERS];
+        this.content = generateDemoContent();
+        this.config = { ...INITIAL_CONFIG };
+        this.lastSynced = new Date();
+        this.gasApiUrl = '';
+      }
+
+      authenticate(email, password) {
+        const user = this.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        if (!user) throw new Error('Email atau kata sandi tidak ditemukan');
+        if (!password || password.length < 3) throw new Error('Kata sandi minimal 3 karakter');
+        return { token: `token_${user.user_id}_${Date.now()}`, user };
+      }
+
+      _authorize(currentUser, requiredRole = null) {
+        if (!currentUser) throw new Error('401 Unauthorized: Sesi tidak ditemukan');
+        if (requiredRole && currentUser.role !== requiredRole) {
+          throw new Error(`403 Forbidden: Akses khusus role ${requiredRole}`);
+        }
+      }
+
+      getSharedCalendar(currentUser, filters = {}) {
+        this._authorize(currentUser);
+        let items = [...this.content];
+        if (filters.month) items = items.filter(c => c.publish_date && c.publish_date.startsWith(filters.month));
+        if (filters.platform && filters.platform !== 'ALL') items = items.filter(c => c.platform === filters.platform);
+        if (filters.type && filters.type !== 'ALL') items = items.filter(c => c.content_type === filters.type);
+        if (filters.status && filters.status !== 'ALL') items = items.filter(c => c.status === filters.status);
+        return items;
+      }
+
+      getKPIDashboard(currentUser, targetCreatorId = null, filterMonth = '2026-09') {
+        this._authorize(currentUser);
+        let creatorIdToFetch = currentUser.user_id;
+        if (currentUser.role === 'creative_director') {
+          creatorIdToFetch = targetCreatorId || currentUser.user_id;
+        } else {
+          if (targetCreatorId && targetCreatorId !== currentUser.user_id) {
+            throw new Error('403 Forbidden: Content Creator dilarang mengakses KPI Creator lain!');
+          }
+        }
+
+        const scoped = this.content.filter(c => {
+          const matchCreator = c.creator_id === creatorIdToFetch;
+          const matchMonth = filterMonth ? c.publish_date && c.publish_date.startsWith(filterMonth) : true;
+          return matchCreator && matchMonth;
+        });
+
+        const creatorUser = this.users.find(u => u.user_id === creatorIdToFetch);
+        const calculation = KPICalculationEngine.evaluateCreator(scoped, this.config);
+        return { creator: creatorUser, period: filterMonth, metrics: calculation, totalContentCount: scoped.length };
+      }
+
+      getTeamKPIOverview(currentUser, filterMonth = '2026-09') {
+        this._authorize(currentUser, 'creative_director');
+        const scoped = this.content.filter(c => (filterMonth ? c.publish_date && c.publish_date.startsWith(filterMonth) : true));
+        const creators = this.users.filter(u => u.role === 'content_creator');
+
+        const creatorBreakdown = creators.map(creator => {
+          const items = scoped.filter(c => c.creator_id === creator.user_id);
+          const evalData = KPICalculationEngine.evaluateCreator(items, this.config);
+          return {
+            creator,
+            contentCount: evalData.contentOutput.count,
+            targetContent: evalData.contentOutput.target,
+            deadlineCompliance: evalData.deadline.actual,
+            h3Compliance: evalData.h3.actual,
+            dailyStory: evalData.stories.dailyAverage,
+            coverOptimalRate: evalData.reelsCover.actual,
+            views100kHits: evalData.views100k.count,
+            overallScore: evalData.overall.score,
+            status: evalData.overall.status
+          };
+        });
+
+        return {
+          period: filterMonth,
+          totalContent: scoped.length,
+          teamDeadline: KPICalculationEngine.calculateDeadlineCompliance(scoped),
+          teamH3: KPICalculationEngine.calculateH3SubmissionCompliance(scoped, this.config.h3SubmissionDays),
+          teamStories: scoped.filter(c => c.content_type === 'Story').length,
+          team100k: scoped.filter(c => (Number(c.views) || 0) >= this.config.views100kThreshold).length,
+          teamCovers: KPICalculationEngine.calculateOptimalReelsCoverRate(scoped),
+          creatorBreakdown
+        };
+      }
+
+      saveContent(currentUser, contentData) {
+        this._authorize(currentUser);
+        if (currentUser.role === 'content_creator') {
+          contentData.creator_id = currentUser.user_id;
+          contentData.creator_name = currentUser.name;
+        }
+        const idx = this.content.findIndex(c => c.content_id === contentData.content_id);
+        if (idx >= 0) {
+          this.content[idx] = { ...this.content[idx], ...contentData, updated_at: new Date().toISOString() };
+          this.lastSynced = new Date();
+          return this.content[idx];
+        } else {
+          const newRecord = {
+            ...contentData,
+            content_id: `CNT-${Date.now().toString().slice(-4)}`,
+            created_at: new Date().toISOString()
+          };
+          this.content.unshift(newRecord);
+          this.lastSynced = new Date();
+          return newRecord;
+        }
+      }
+
+      saveConfig(currentUser, newConfig) {
+        this._authorize(currentUser, 'creative_director');
+        this.config = { ...this.config, ...newConfig };
+        return this.config;
+      }
+    }
+
+    const backendService = new MockBackendService();
+
+    const STATUS_BADGE = {
+      IDEA: 'bg-amber-100 text-amber-800 border-amber-200',
+      BRIEF: 'bg-purple-100 text-purple-800 border-purple-200',
+      'IN PRODUCTION': 'bg-blue-100 text-blue-800 border-blue-200',
+      SUBMITTED: 'bg-sky-100 text-sky-800 border-sky-200',
+      REVISION: 'bg-rose-100 text-rose-800 border-rose-200',
+      APPROVED: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      SCHEDULED: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+      PUBLISHED: 'bg-teal-100 text-teal-800 border-teal-200',
+      CANCELLED: 'bg-slate-200 text-slate-600 border-slate-300'
+    };
+
+    const KPI_BADGE = {
+      ACHIEVED: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      'ON TRACK': 'bg-blue-100 text-blue-800 border-blue-300',
+      WARNING: 'bg-amber-100 text-amber-800 border-amber-300',
+      'NEEDS ATTENTION': 'bg-rose-100 text-rose-800 border-rose-300'
+    };
+
+    function App() {
+      const [currentUser, setCurrentUser] = useState(null);
+      const [authEmail, setAuthEmail] = useState('director@creative.studio');
+      const [authPassword, setAuthPassword] = useState('director123');
+      const [authError, setAuthError] = useState('');
+      const [forgotModal, setForgotModal] = useState(false);
+
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [filterMonth, setFilterMonth] = useState('2026-09');
+
+      const [contentList, setContentList] = useState([]);
+      const [users, setUsers] = useState(INITIAL_USERS);
+      const [config, setConfig] = useState(INITIAL_CONFIG);
+      const [lastSyncTime, setLastSyncTime] = useState(new Date().toLocaleTimeString());
+      const [isSyncing, setIsSyncing] = useState(false);
+
+      const [selectedContent, setSelectedContent] = useState(null);
+      const [isContentModalOpen, setIsContentModalOpen] = useState(false);
+      const [selectedCreatorForDrilldown, setSelectedCreatorForDrilldown] = useState(null);
+
+      const [toast, setToast] = useState(null);
+      const showToast = (message, type = 'info') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+      };
+
+      const refreshData = useCallback(() => {
+        if (!currentUser) return;
+        try {
+          const items = backendService.getSharedCalendar(currentUser, { month: filterMonth });
+          setContentList(items);
+          setUsers([...backendService.users]);
+          setConfig({ ...backendService.config });
+          setLastSyncTime(backendService.lastSynced.toLocaleTimeString());
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      }, [currentUser, filterMonth]);
+
+      useEffect(() => {
+        if (!currentUser) return;
+        refreshData();
+        const interval = setInterval(() => {
+          backendService.lastSynced = new Date();
+          refreshData();
+        }, (config.syncIntervalSeconds || 30) * 1000);
+        return () => clearInterval(interval);
+      }, [currentUser, refreshData, config.syncIntervalSeconds]);
+
+      const handleManualSync = () => {
+        setIsSyncing(true);
+        setTimeout(() => {
+          backendService.lastSynced = new Date();
+          refreshData();
+          setIsSyncing(false);
+          showToast('Berhasil sinkronisasi dengan database Google Sheets!', 'success');
+        }, 500);
+      };
+
+      const handleLogin = (e) => {
+        e.preventDefault();
+        setAuthError('');
+        try {
+          const { user } = backendService.authenticate(authEmail, authPassword);
+          setCurrentUser(user);
+          setActiveTab('dashboard');
+          showToast(`Selamat datang kembali, ${user.name}!`, 'success');
+        } catch (err) {
+          setAuthError(err.message);
+        }
+      };
+
+      const handleLogout = () => {
+        setCurrentUser(null);
+        setSelectedCreatorForDrilldown(null);
+        showToast('Berhasil keluar secara aman', 'info');
+      };
+
+      const handleQuickSwitch = (email) => {
+        setAuthEmail(email);
+        setAuthPassword('demo-pass');
+        try {
+          const { user } = backendService.authenticate(email, 'demo-pass');
+          setCurrentUser(user);
+          setActiveTab('dashboard');
+          setSelectedCreatorForDrilldown(null);
+          showToast(`Beralih akun sebagai: ${user.name}`, 'info');
+        } catch (err) {
+          setAuthError(err.message);
+        }
+      };
+
+      // --- LOGIN VIEW ---
+      if (!currentUser) {
+        return (
+          <div className="min-h-screen bg-[#e8ecf4] text-slate-800 flex flex-col justify-center items-center p-4 relative overflow-hidden">
+            {/* Ambient Clay 3D Bubbles */}
+            <div className="absolute -top-12 -left-12 w-64 h-64 rounded-full bg-gradient-to-tr from-purple-300 to-indigo-200 opacity-60 blur-xl pointer-events-none" />
+            <div className="absolute top-1/3 -right-20 w-80 h-80 rounded-full bg-gradient-to-tr from-teal-200 to-emerald-200 opacity-60 blur-xl pointer-events-none" />
+            <div className="absolute -bottom-16 left-1/4 w-72 h-72 rounded-full bg-gradient-to-tr from-rose-200 to-amber-200 opacity-50 blur-xl pointer-events-none" />
+
+            <div className="w-full max-w-md clay-surface p-8 sm:p-10 z-10 relative">
+              <div className="flex items-center space-x-3.5 mb-6">
+                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-[6px_6px_12px_rgba(99,102,241,0.4),-4px_-4px_10px_#ffffff]">
+                  <Icon.Layers />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Content OS</h1>
+                  <p className="text-xs text-indigo-600 font-semibold">Claymorphic Creative & KPI Ops</p>
+                </div>
+              </div>
+
+              <div className="mb-6 clay-inset p-3.5">
+                <p className="text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                  Pilih Akun Demo (Klik untuk Masuk Langsung):
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSwitch('director@creative.studio')}
+                    className="clay-btn bg-white hover:bg-indigo-50 text-slate-800 p-2.5 text-left text-xs font-semibold flex items-center justify-between"
+                  >
+                    <span>Director (Admin)</span>
+                    <Icon.Shield />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSwitch('alex@creative.studio')}
+                    className="clay-btn bg-white hover:bg-teal-50 text-slate-800 p-2.5 text-left text-xs font-semibold flex items-center justify-between"
+                  >
+                    <span>Alex (Creator A)</span>
+                    <Icon.User />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSwitch('maya@creative.studio')}
+                    className="clay-btn bg-white hover:bg-rose-50 text-slate-800 p-2.5 text-left text-xs font-semibold flex items-center justify-between"
+                  >
+                    <span>Maya (Creator B)</span>
+                    <Icon.User />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSwitch('jordan@creative.studio')}
+                    className="clay-btn bg-white hover:bg-amber-50 text-slate-800 p-2.5 text-left text-xs font-semibold flex items-center justify-between"
+                  >
+                    <span>Jordan (Creator C)</span>
+                    <Icon.User />
+                  </button>
+                </div>
+              </div>
+
+              {authError && (
+                <div className="mb-4 p-3 rounded-2xl bg-rose-100 border border-rose-200 text-rose-700 text-xs font-medium flex items-center space-x-2">
+                  <Icon.Alert />
+                  <span>{authError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="name@creative.studio"
+                    className="w-full clay-inset px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1.5 ml-1">
+                    <label className="block text-xs font-bold text-slate-600">Password</label>
+                    <button
+                      type="button"
+                      onClick={() => setForgotModal(true)}
+                      className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold"
+                    >
+                      Lupa password?
+                    </button>
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full clay-inset px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 font-medium"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full mt-2 clay-btn bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold py-3.5 text-sm shadow-[6px_6px_14px_rgba(99,102,241,0.4),-4px_-4px_10px_#ffffff] flex items-center justify-center space-x-2"
+                >
+                  <span>Masuk ke Content OS</span>
+                </button>
+              </form>
+
+              <div className="mt-6 text-center">
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Live Google Sheets Integration · Near Real-Time Recalculation
+                </p>
+              </div>
+            </div>
+
+            {forgotModal && (
+              <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="clay-surface bg-white p-6 max-w-sm w-full text-slate-800">
+                  <h3 className="text-base font-bold mb-2 text-slate-900">Reset Password</h3>
+                  <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+                    Untuk reset password akun tim, silakan hubungi Creative Director atau admin IT. Pada mode demo, masukkan sembarang kata sandi.
+                  </p>
+                  <button
+                    onClick={() => setForgotModal(false)}
+                    className="w-full py-2.5 clay-btn bg-slate-100 text-slate-700 text-xs font-bold"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      const isDirector = currentUser.role === 'creative_director';
+
+      const activeCreatorKPIData = isDirector && selectedCreatorForDrilldown
+        ? backendService.getKPIDashboard(currentUser, selectedCreatorForDrilldown, filterMonth)
+        : !isDirector
+        ? backendService.getKPIDashboard(currentUser, currentUser.user_id, filterMonth)
+        : null;
+
+      const teamOverview = isDirector ? backendService.getTeamKPIOverview(currentUser, filterMonth) : null;
+
+      return (
+        <div className="min-h-screen bg-[#e8ecf4] text-slate-800 flex flex-col antialiased">
+          {/* Toast Notification */}
+          {toast && (
+            <div className={`fixed bottom-6 right-6 z-50 px-5 py-3.5 clay-card flex items-center space-x-3 transition-all text-xs font-bold ${
+              toast.type === 'success' ? 'text-emerald-700 bg-emerald-50/90' :
+              toast.type === 'error' ? 'text-rose-700 bg-rose-50/90' :
+              'text-indigo-700 bg-indigo-50/90'
+            }`}>
+              <Icon.Check />
+              <span>{toast.message}</span>
+            </div>
+          )}
+
+          {}
+          <header className="sticky top-0 z-40 bg-[#e8ecf4]/90 backdrop-blur-md px-4 lg:px-8 py-3.5 border-b border-slate-300/60 flex items-center justify-between">
+            <div className="flex items-center space-x-3.5">
+              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-[4px_4px_10px_rgba(99,102,241,0.35),-3px_-3px_8px_#ffffff]">
+                <Icon.Layers />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="font-extrabold text-slate-900 text-lg tracking-tight">Content OS</span>
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 clay-pill bg-white text-indigo-600">
+                    Clay v3.0
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium hidden sm:block">Creative Management & Live KPI System</p>
+              </div>
+            </div>
+
+            {/* Sync Controls & Profile */}
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center clay-inset px-3 py-1.5 text-xs text-slate-700 font-semibold">
+                <span className="mr-1.5"><Icon.Clock /></span>
+                <select
+                  value={filterMonth}
+                  onChange={(e) => setFilterMonth(e.target.value)}
+                  className="bg-transparent text-slate-800 font-bold focus:outline-none cursor-pointer"
+                >
+                  <option value="2026-09">September 2026</option>
+                  <option value="2026-08">Agustus 2026</option>
+                  <option value="2026-10">Oktober 2026</option>
+                </select>
+              </div>
+
+              <div className="hidden md:flex items-center space-x-2 px-3.5 py-1.5 clay-card text-xs text-slate-600 font-medium">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                <span>Synced: <strong className="text-slate-800">{lastSyncTime}</strong></span>
+              </div>
+
+              {isDirector && (
+                <button
+                  onClick={handleManualSync}
+                  disabled={isSyncing}
+                  className="clay-btn bg-white text-indigo-600 px-3.5 py-1.5 text-xs font-bold flex items-center space-x-1.5"
+                  title="Tarik data terbaru dari Google Sheets"
+                >
+                  <span className={isSyncing ? 'animate-spin' : ''}><Icon.Refresh /></span>
+                  <span className="hidden sm:inline">Sync Now</span>
+                </button>
+              )}
+
+              {/* User Avatar & Logout */}
+              <div className="flex items-center pl-2 border-l border-slate-300 space-x-3">
+                <div className="flex items-center space-x-2">
+                  <img
+                    src={currentUser.avatar}
+                    alt={currentUser.name}
+                    className="w-9 h-9 rounded-2xl object-cover shadow-[2px_2px_6px_rgba(0,0,0,0.15)] border-2 border-white"
+                  />
+                  <div className="hidden lg:block text-left">
+                    <div className="text-xs font-extrabold text-slate-900 leading-tight">{currentUser.name}</div>
+                    <div className="text-[10px] text-indigo-600 font-semibold">
+                      {currentUser.role === 'creative_director' ? 'Creative Director' : 'Content Creator'}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="clay-btn p-2 bg-white text-slate-400 hover:text-rose-600"
+                  title="Keluar"
+                >
+                  <Icon.LogOut />
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {}
+          <div className="flex-1 flex flex-col md:flex-row p-4 lg:p-6 gap-6">
+            {/* SIDEBAR NAVIGATION */}
+            <aside className="w-full md:w-64 clay-surface p-4 flex md:flex-col justify-between shrink-0">
+              <div className="w-full space-y-1.5">
+                <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-extrabold text-slate-400">
+                  {isDirector ? 'Executive Console' : 'Creator Portal'}
+                </div>
+
+                {isDirector ? (
+                  <>
+                    <ClayNavItem
+                      icon={<Icon.Dashboard />}
+                      label="Dashboard"
+                      active={activeTab === 'dashboard' && !selectedCreatorForDrilldown}
+                      onClick={() => { setSelectedCreatorForDrilldown(null); setActiveTab('dashboard'); }}
+                    />
+                    <ClayNavItem
+                      icon={<Icon.Calendar />}
+                      label="Content Calendar"
+                      active={activeTab === 'calendar'}
+                      onClick={() => setActiveTab('calendar')}
+                    />
+                    <ClayNavItem
+                      icon={<Icon.FileText />}
+                      label="All Content"
+                      active={activeTab === 'all_content'}
+                      onClick={() => setActiveTab('all_content')}
+                    />
+                    <ClayNavItem
+                      icon={<Icon.Chart />}
+                      label="Team KPI Matrix"
+                      active={activeTab === 'kpi'}
+                      onClick={() => setActiveTab('kpi')}
+                    />
+                    <ClayNavItem
+                      icon={<Icon.Users />}
+                      label="Creators"
+                      active={activeTab === 'creators'}
+                      onClick={() => setActiveTab('creators')}
+                    />
+                    <ClayNavItem
+                      icon={<Icon.Sheet />}
+                      label="Google Sheets Sync"
+                      active={activeTab === 'sheet_sync'}
+                      onClick={() => setActiveTab('sheet_sync')}
+                    />
+                    <ClayNavItem
+                      icon={<Icon.Settings />}
+                      label="KPI Settings"
+                      active={activeTab === 'settings'}
+                      onClick={() => setActiveTab('settings')}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <ClayNavItem
+                      icon={<Icon.Dashboard />}
+                      label="Dashboard"
+                      active={activeTab === 'dashboard'}
+                      onClick={() => setActiveTab('dashboard')}
+                    />
+                    <ClayNavItem
+                      icon={<Icon.Calendar />}
+                      label="Content Calendar"
+                      badge="Shared"
+                      active={activeTab === 'calendar'}
+                      onClick={() => setActiveTab('calendar')}
+                    />
+                    <ClayNavItem
+                      icon={<Icon.FileText />}
+                      label="My Content"
+                      active={activeTab === 'my_content'}
+                      onClick={() => setActiveTab('my_content')}
+                    />
+                    <ClayNavItem
+                      icon={<Icon.Chart />}
+                      label="My KPI"
+                      badge="Private"
+                      active={activeTab === 'my_kpi'}
+                      onClick={() => setActiveTab('my_kpi')}
+                    />
+                    <ClayNavItem
+                      icon={<Icon.User />}
+                      label="Profile & Specs"
+                      active={activeTab === 'profile'}
+                      onClick={() => setActiveTab('profile')}
+                    />
+                  </>
+                )}
+              </div>
+
+              {/* New Content Trigger Button */}
+              <div className="hidden md:block pt-4 mt-6 border-t border-slate-300/60">
+                <button
+                  onClick={() => {
+                    setSelectedContent({
+                      content_id: '',
+                      creator_id: isDirector ? users.find(u => u.role === 'content_creator')?.user_id : currentUser.user_id,
+                      creator_name: isDirector ? users.find(u => u.role === 'content_creator')?.name : currentUser.name,
+                      content_title: '',
+                      content_type: 'Reels',
+                      platform: 'Instagram',
+                      brief: '',
+                      publish_date: '2026-09-15',
+                      publish_time: '18:00',
+                      assigned_date: '2026-09-01',
+                      submission_date: '2026-09-10',
+                      status: 'IN PRODUCTION',
+                      is_unexpected_task: false,
+                      cover_status: 'OPTIMAL',
+                      views: 0,
+                      likes: 0
+                    });
+                    setIsContentModalOpen(true);
+                  }}
+                  className="w-full clay-btn bg-gradient-to-r from-teal-400 to-emerald-500 text-white text-xs font-bold py-3 px-3 shadow-[6px_6px_14px_rgba(20,184,166,0.35),-4px_-4px_10px_#ffffff] flex items-center justify-center space-x-1.5"
+                >
+                  <Icon.Plus />
+                  <span>New Content Task</span>
+                </button>
+              </div>
+            </aside>
+
+            {}
+            <main className="flex-1 overflow-y-auto max-w-7xl mx-auto w-full space-y-6">
+              {/* 1. CREATIVE DIRECTOR DASHBOARD */}
+              {isDirector && activeTab === 'dashboard' && !selectedCreatorForDrilldown && (
+                <ClayDirectorDashboard
+                  teamOverview={teamOverview}
+                  contentList={contentList}
+                  config={config}
+                  onSelectCreator={(id) => setSelectedCreatorForDrilldown(id)}
+                  onSelectContent={(item) => { setSelectedContent(item); setIsContentModalOpen(true); }}
+                />
+              )}
+
+              {/* 2. CREATOR DRILLDOWN VIEW */}
+              {isDirector && selectedCreatorForDrilldown && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between pb-2">
+                    <button
+                      onClick={() => setSelectedCreatorForDrilldown(null)}
+                      className="clay-btn bg-white text-indigo-600 px-4 py-2 text-xs font-bold flex items-center space-x-2"
+                    >
+                      <Icon.ChevronLeft />
+                      <span>Kembali ke Ringkasan Tim</span>
+                    </button>
+                    <span className="text-xs text-slate-500 font-bold">Evaluasi Individu Creator</span>
+                  </div>
+                  {activeCreatorKPIData && <ClayCreatorKPIDashboard kpiData={activeCreatorKPIData} />}
+                </div>
+              )}
+
+              {/* 3. CONTENT CREATOR DASHBOARD */}
+              {!isDirector && activeTab === 'dashboard' && (
+                <ClayCreatorDashboard
+                  user={currentUser}
+                  kpiData={activeCreatorKPIData}
+                  contentList={contentList.filter(c => c.creator_id === currentUser.user_id)}
+                  onViewMyKPI={() => setActiveTab('my_kpi')}
+                  onSelectContent={(item) => { setSelectedContent(item); setIsContentModalOpen(true); }}
+                />
+              )}
+
+              {/* 4. CONTENT CALENDAR */}
+              {activeTab === 'calendar' && (
+                <ClayContentCalendar
+                  contentList={contentList}
+                  onSelectContent={(item) => { setSelectedContent(item); setIsContentModalOpen(true); }}
+                  onCreateNew={(date) => {
+                    setSelectedContent({
+                      content_id: '',
+                      creator_id: isDirector ? users.find(u => u.role === 'content_creator')?.user_id : currentUser.user_id,
+                      creator_name: isDirector ? users.find(u => u.role === 'content_creator')?.name : currentUser.name,
+                      content_title: '',
+                      content_type: 'Reels',
+                      platform: 'Instagram',
+                      brief: '',
+                      publish_date: date || '2026-09-15',
+                      publish_time: '18:00',
+                      assigned_date: '2026-09-01',
+                      submission_date: '2026-09-10',
+                      status: 'IN PRODUCTION',
+                      is_unexpected_task: false,
+                      cover_status: 'OPTIMAL',
+                      views: 0
+                    });
+                    setIsContentModalOpen(true);
+                  }}
+                />
+              )}
+
+              {/* 5. ALL CONTENT / MY CONTENT TABLE */}
+              {(activeTab === 'all_content' || activeTab === 'my_content') && (
+                <ClayContentTable
+                  contentList={isDirector ? contentList : contentList.filter(c => c.creator_id === currentUser.user_id)}
+                  isDirector={isDirector}
+                  onSelectContent={(item) => { setSelectedContent(item); setIsContentModalOpen(true); }}
+                />
+              )}
+
+              {/* 6. KPI DASHBOARDS */}
+              {isDirector && activeTab === 'kpi' && (
+                <ClayTeamKPIDashboard
+                  teamOverview={teamOverview}
+                  onSelectCreator={(id) => setSelectedCreatorForDrilldown(id)}
+                />
+              )}
+
+              {!isDirector && activeTab === 'my_kpi' && activeCreatorKPIData && (
+                <ClayCreatorKPIDashboard kpiData={activeCreatorKPIData} />
+              )}
+
+              {/* 7. CREATORS DIRECTORY */}
+              {isDirector && activeTab === 'creators' && (
+                <ClayCreatorsDirectory
+                  users={users.filter(u => u.role === 'content_creator')}
+                  teamOverview={teamOverview}
+                  onSelectCreator={(id) => setSelectedCreatorForDrilldown(id)}
+                />
+              )}
+
+              {/* 8. GOOGLE SHEETS LIVE SYNC */}
+              {isDirector && activeTab === 'sheet_sync' && (
+                <ClayGoogleSheetsSync
+                  backendService={backendService}
+                  onManualSync={handleManualSync}
+                  isSyncing={isSyncing}
+                  lastSyncTime={lastSyncTime}
+                  onSaveApiUrl={(url) => {
+                    backendService.gasApiUrl = url;
+                    showToast('URL Google Apps Script berhasil disimpan!', 'success');
+                  }}
+                />
+              )}
+
+              {/* 9. SETTINGS */}
+              {isDirector && activeTab === 'settings' && (
+                <ClaySettingsView
+                  config={config}
+                  onSave={(newCfg) => {
+                    backendService.saveConfig(currentUser, newCfg);
+                    setConfig({ ...newCfg });
+                    refreshData();
+                    showToast('Pengaturan KPI tersimpan & terhitung ulang!', 'success');
+                  }}
+                />
+              )}
+
+              {/* 10. PROFILE SPECS */}
+              {activeTab === 'profile' && (
+                <ClayProfileSpecs user={currentUser} config={config} />
+              )}
+            </main>
+          </div>
+
+          {/* CONTENT DETAIL / EDIT MODAL */}
+          {isContentModalOpen && selectedContent && (
+            <ClayContentModal
+              content={selectedContent}
+              currentUser={currentUser}
+              users={users}
+              onClose={() => setIsContentModalOpen(false)}
+              onSave={(updated) => {
+                try {
+                  backendService.saveContent(currentUser, updated);
+                  refreshData();
+                  setIsContentModalOpen(false);
+                  showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
+                } catch (err) {
+                  showToast(err.message, 'error');
+                }
+              }}
+            />
+          )}
+        </div>
+      );
+    }
+
+    function ClayNavItem({ icon, label, active, onClick, badge }) {
+      return (
+        <button
+          onClick={onClick}
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold transition ${
+            active
+              ? 'clay-btn bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-[6px_6px_14px_rgba(99,102,241,0.35),-4px_-4px_10px_#ffffff]'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            {icon}
+            <span>{label}</span>
+          </div>
+          {badge && (
+            <span className={`text-[9px] font-extrabold px-2 py-0.5 clay-pill ${
+              active ? 'bg-white text-indigo-700' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {badge}
+            </span>
+          )}
+        </button>
+      );
+    }
+
+    function ClayDirectorDashboard({ teamOverview, contentList, config, onSelectCreator, onSelectContent }) {
+      if (!teamOverview) return null;
+
+      const publishedCount = contentList.filter(c => c.status === 'PUBLISHED').length;
+      const totalTarget = teamOverview.creatorBreakdown.length * config.monthlyContentTarget;
+
+      const attentionAlerts = useMemo(() => {
+        const alerts = [];
+        teamOverview.creatorBreakdown.forEach(cb => {
+          if (cb.dailyStory < config.dailyStoryTarget) {
+            alerts.push({
+              title: `${cb.creator.name} di bawah Target Story`,
+              desc: `Rata-rata ${cb.dailyStory}/hari (Target: ${config.dailyStoryTarget}/hari).`,
+              creatorId: cb.creator.user_id
+            });
+          }
+          if (cb.deadlineCompliance < 100) {
+            alerts.push({
+              title: `${cb.creator.name} Missed Deadline`,
+              desc: `Tingkat kepatuhan waktu saat ini ${cb.deadlineCompliance}%.`,
+              creatorId: cb.creator.user_id
+            });
+          }
+        });
+        return alerts;
+      }, [teamOverview, config]);
+
+      return (
+        <div className="space-y-6">
+          {/* Top Banner */}
+          <div className="clay-surface bg-gradient-to-r from-white via-indigo-50/40 to-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <span className="text-[10px] font-extrabold px-3 py-1 clay-pill bg-indigo-100 text-indigo-700 uppercase tracking-wider">
+                Executive Director Control
+              </span>
+              <h2 className="text-2xl font-extrabold text-slate-900 mt-2 tracking-tight">Kinerja & Operasional Tim</h2>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Monitoring langsung dari {contentList.length} total aset konten tim kreatif.
+              </p>
+            </div>
+
+            <div className="clay-card p-4 text-right">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Total Progres Konten Tim</div>
+              <div className="text-xl font-black text-slate-900 mt-0.5">
+                {publishedCount} <span className="text-xs font-semibold text-slate-400">/ {totalTarget} target</span>
+              </div>
+            </div>
+          </div>
+
+          {/* KPI 6-Summary Mini Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+            <ClayKPIMiniCard label="Total Konten" value={publishedCount} subtext={`Target: ${totalTarget}`} status={publishedCount >= totalTarget * 0.7 ? 'ON TRACK' : 'NEEDS ATTENTION'} />
+            <ClayKPIMiniCard label="Total Stories" value={teamOverview.teamStories} subtext="Output Tim" status="ON TRACK" />
+            <ClayKPIMiniCard label="Tepat Deadline" value={`${teamOverview.teamDeadline.actual}%`} subtext="Target: 100%" status={teamOverview.teamDeadline.status} />
+            <ClayKPIMiniCard label="Submit H+3" value={`${teamOverview.teamH3.actual}%`} subtext="Target: 100%" status={teamOverview.teamH3.status} />
+            <ClayKPIMiniCard label="100K+ Viral" value={teamOverview.team100k} subtext="Hits >100k views" status={teamOverview.team100k >= 6 ? 'ACHIEVED' : 'ON TRACK'} />
+            <ClayKPIMiniCard label="Cover Optimal" value={`${teamOverview.teamCovers.actual}%`} subtext={`${teamOverview.teamCovers.optimalCount}/${teamOverview.teamCovers.totalReels} Reels`} status={teamOverview.teamCovers.status} />
+          </div>
+
+          {/* Attention Required Panel */}
+          {attentionAlerts.length > 0 && (
+            <div className="clay-surface bg-rose-50/50 p-5 border border-rose-200/80">
+              <div className="flex items-center space-x-2 text-rose-700 text-xs font-extrabold uppercase tracking-wider mb-3">
+                <Icon.Alert />
+                <span>Memerlukan Perhatian ({attentionAlerts.length})</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {attentionAlerts.slice(0, 3).map((alert, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => onSelectCreator(alert.creatorId)}
+                    className="clay-card p-4 hover:bg-rose-50/60 cursor-pointer transition flex flex-col justify-between"
+                  >
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800">{alert.title}</h4>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{alert.desc}</p>
+                    </div>
+                    <div className="mt-3 text-[10px] text-indigo-600 font-bold flex items-center space-x-1">
+                      <span>Lihat Detail</span>
+                      <Icon.ChevronRight />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Creator Performance Roster */}
+          <div className="clay-surface p-5 overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-200">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900">Peringkat & Kinerja Content Creator</h3>
+                <p className="text-xs text-slate-500">Klik baris creator untuk membuka evaluasi KPI terperinci.</p>
+              </div>
+              <span className="text-xs font-bold text-indigo-600 clay-pill bg-indigo-50 px-3 py-1">
+                Bobot: Process 30% · Output 40% · Outcome 30%
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="text-slate-400 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="py-2.5 px-3">Creator</th>
+                    <th className="py-2.5 px-3">Konten Output</th>
+                    <th className="py-2.5 px-3">Deadline</th>
+                    <th className="py-2.5 px-3">Submit H+3</th>
+                    <th className="py-2.5 px-3">Stories</th>
+                    <th className="py-2.5 px-3">Cover Reels</th>
+                    <th className="py-2.5 px-3">100K+ Views</th>
+                    <th className="py-2.5 px-3">Skor</th>
+                    <th className="py-2.5 px-3 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {teamOverview.creatorBreakdown.map((row) => (
+                    <tr
+                      key={row.creator.user_id}
+                      onClick={() => onSelectCreator(row.creator.user_id)}
+                      className="hover:bg-indigo-50/40 cursor-pointer transition"
+                    >
+                      <td className="py-3 px-3">
+                        <div className="flex items-center space-x-2.5">
+                          <img src={row.creator.avatar} alt={row.creator.name} className="w-8 h-8 rounded-xl object-cover shadow-sm" />
+                          <div>
+                            <div className="font-bold text-slate-900">{row.creator.name}</div>
+                            <div className="text-[10px] text-slate-400">{row.creator.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 font-bold">{row.contentCount} / {row.targetContent}</td>
+                      <td className="py-3 px-3 font-bold text-indigo-600">{row.deadlineCompliance}%</td>
+                      <td className="py-3 px-3 font-bold text-teal-600">{row.h3Compliance}%</td>
+                      <td className="py-3 px-3 font-bold">{row.dailyStory} /hari</td>
+                      <td className="py-3 px-3 font-bold">{row.coverOptimalRate}%</td>
+                      <td className="py-3 px-3 font-bold text-amber-600">{row.views100kHits} / 3</td>
+                      <td className="py-3 px-3 font-extrabold text-slate-900">{row.overallScore}%</td>
+                      <td className="py-3 px-3 text-right">
+                        <span className={`px-2.5 py-1 clay-pill text-[10px] font-extrabold ${KPI_BADGE[row.status]}`}>
+                          {row.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ClayCreatorDashboard({ user, kpiData, contentList, onViewMyKPI, onSelectContent }) {
+      if (!kpiData) return null;
+      const m = kpiData.metrics;
+
+      const todayTasks = contentList.filter(c => ['IN PRODUCTION', 'BRIEF', 'REVISION'].includes(c.status));
+      const upcoming = contentList.filter(c => c.status !== 'PUBLISHED' && c.status !== 'CANCELLED');
+
+      return (
+        <div className="space-y-6">
+          {/* Welcome Banner */}
+          <div className="clay-surface bg-gradient-to-r from-white via-teal-50/40 to-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <span className="text-[10px] font-extrabold px-3 py-1 clay-pill bg-teal-100 text-teal-700 uppercase tracking-wider">
+                Workspace Pribadi Creator
+              </span>
+              <h2 className="text-2xl font-extrabold text-slate-900 mt-2 tracking-tight">
+                Halo, {user.name.split(' ')[0]} 👋
+              </h2>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Berikut ringkasan tugas aktif dan performa KPI live kamu bulan ini.
+              </p>
+            </div>
+
+            <button
+              onClick={onViewMyKPI}
+              className="clay-btn bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs font-bold px-5 py-3 flex items-center space-x-2"
+            >
+              <Icon.Chart />
+              <span>Buka KPI Detail Saya</span>
+            </button>
+          </div>
+
+          {/* 5-Item Highlights */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+            <ClayKPIMiniCard label="Tugas Aktif" value={todayTasks.length} subtext="Perlu dikerjakan" status={todayTasks.length > 4 ? 'WARNING' : 'ON TRACK'} />
+            <ClayKPIMiniCard label="Konten Bulanan" value={`${m.contentOutput.count} / ${m.contentOutput.target}`} subtext={`${m.contentOutput.percentage}% tercapai`} status={m.contentOutput.status} />
+            <ClayKPIMiniCard label="Rata-rata Story" value={`${m.stories.dailyAverage}/h`} subtext={`Target: ${m.stories.target}/hari`} status={m.stories.status} />
+            <ClayKPIMiniCard label="100K+ Views" value={`${m.views100k.count} / ${m.views100k.target}`} subtext="Viral Target" status={m.views100k.status} />
+            <ClayKPIMiniCard label="Deadline Tepat" value={`${m.deadline.actual}%`} subtext="Target 100%" status={m.deadline.status} />
+          </div>
+
+          {/* Two Column Action Area */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="clay-surface p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-extrabold text-slate-900 flex items-center space-x-2">
+                    <span className="text-indigo-500"><Icon.Clock /></span>
+                    <span>Deadline Terdekat ({upcoming.length})</span>
+                  </h3>
+                </div>
+
+                {upcoming.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 font-bold">
+                    Semua tugas telah selesai atau dipublikasikan! 🎉
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {upcoming.slice(0, 4).map((item) => (
+                      <div
+                        key={item.content_id}
+                        onClick={() => onSelectContent(item)}
+                        className="clay-card p-3.5 hover:bg-indigo-50/50 cursor-pointer transition flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className={`text-[9px] font-bold px-2 py-0.5 clay-pill ${STATUS_BADGE[item.status]}`}>
+                              {item.status}
+                            </span>
+                            <span className="text-[10px] font-semibold text-slate-400">Publish: {item.publish_date}</span>
+                          </div>
+                          <h4 className="text-xs font-bold text-slate-800 truncate max-w-xs">{item.content_title}</h4>
+                        </div>
+                        <span className="text-[10px] font-extrabold px-2.5 py-1 clay-pill bg-slate-100 text-slate-700">
+                          {item.content_type}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <p className="text-[11px] text-slate-500 font-medium mt-4 pt-3 border-t border-slate-200">
+                💡 Submit konten minimal <strong>H+3 sebelum publish</strong> agar skor Process KPI tetap 100%.
+              </p>
+            </div>
+
+            {/* Health Check Bar */}
+            <div className="clay-surface p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-extrabold text-slate-900 flex items-center space-x-2">
+                  <span className="text-indigo-500"><Icon.Shield /></span>
+                  <span>Kesehatan KPI Keseluruhan</span>
+                </h3>
+                <span className={`px-3 py-1 clay-pill text-[10px] font-extrabold ${KPI_BADGE[m.overall.status]}`}>
+                  {m.overall.status} ({m.overall.score}%)
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1.5">
+                    <span className="text-slate-600">A. Process (Deadline & H+3)</span>
+                    <span className="text-indigo-600">{m.overall.processScore}%</span>
+                  </div>
+                  <div className="w-full h-3 clay-inset p-0.5">
+                    <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style={{ width: `${Math.min(m.overall.processScore, 100)}%` }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1.5">
+                    <span className="text-slate-600">B. Output (Konten & Stories)</span>
+                    <span className="text-teal-600">{m.overall.outputScore}%</span>
+                  </div>
+                  <div className="w-full h-3 clay-inset p-0.5">
+                    <div className="h-full bg-gradient-to-r from-teal-400 to-emerald-500 rounded-full" style={{ width: `${Math.min(m.overall.outputScore, 100)}%` }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1.5">
+                    <span className="text-slate-600">C. Outcome (100K+ Views)</span>
+                    <span className="text-amber-600">{m.overall.outcomeScore}%</span>
+                  </div>
+                  <div className="w-full h-3 clay-inset p-0.5">
+                    <div className="h-full bg-gradient-to-r from-amber-400 to-rose-400 rounded-full" style={{ width: `${Math.min(m.overall.outcomeScore, 100)}%` }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ClayCreatorKPIDashboard({ kpiData }) {
+      if (!kpiData) return null;
+      const { creator, period, metrics } = kpiData;
+
+      return (
+        <div className="space-y-6">
+          <div className="clay-surface p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center space-x-4">
+              <img src={creator.avatar} alt={creator.name} className="w-16 h-16 rounded-3xl object-cover shadow-md border-2 border-white" />
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-xl font-extrabold text-slate-900">{creator.name}</h2>
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 clay-pill bg-slate-100 text-slate-700">{period}</span>
+                </div>
+                <p className="text-xs text-slate-500 font-medium">{creator.email} · Private KPI Evaluation</p>
+              </div>
+            </div>
+
+            <div className="clay-card p-4 flex items-center space-x-4">
+              <div>
+                <div className="text-[10px] font-bold uppercase text-slate-400">Total Skor KPI</div>
+                <div className="text-2xl font-black text-slate-900">{metrics.overall.score}%</div>
+              </div>
+              <span className={`px-3 py-1.5 clay-pill text-xs font-extrabold ${KPI_BADGE[metrics.overall.status]}`}>
+                {metrics.overall.status}
+              </span>
+            </div>
+          </div>
+
+          {/* Category A: Process */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-700 ml-1">A. Process KPI (Bobot: 30%)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <ClayKPIDetailCard title="1. Deadline 100% Tepat Waktu" actual={`${metrics.deadline.actual}%`} target="100%" status={metrics.deadline.status} subtitle={`${metrics.deadline.count} / ${metrics.deadline.total} tepat waktu`} desc="Mengukur kepatuhan tanggal rilis konten tanpa keterlambatan." />
+              <ClayKPIDetailCard title="2. Submit Maksimal H+3" actual={`${metrics.h3.actual}%`} target="100%" status={metrics.h3.status} subtitle={`${metrics.h3.count} / ${metrics.h3.total} submitted ≥ 3 hari sebelum`} desc="Draft harus diserahkan minimal 3 hari sebelum publish untuk proses QA." />
+              <ClayKPIDetailCard title="3. Unexpected Task (≤ H+1)" actual={`${metrics.unexpected.actual}%`} target="100%" status={metrics.unexpected.status} subtitle={`${metrics.unexpected.count} / ${metrics.unexpected.total} selesai < 24 jam`} desc="Kecepatan eksekusi konten darurat/ad-hoc marketing." />
+            </div>
+          </div>
+
+          {/* Category B: Output */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-teal-700 ml-1">B. Output KPI (Bobot: 40%)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <ClayKPIDetailCard title="4. Target 35 Konten / Bulan" actual={`${metrics.contentOutput.count} / ${metrics.contentOutput.target}`} target="35 Konten" status={metrics.contentOutput.status} subtitle={`${metrics.contentOutput.percentage}% terpenuhi`} desc="Total konten feed utama (Reels, Carousel, Single Post)." />
+              <ClayKPIDetailCard title="5. Story Min 8 / Hari" actual={`${metrics.stories.dailyAverage} /hari`} target="≥ 8 Stories" status={metrics.stories.status} subtitle={`${metrics.stories.totalStories} total story terbit`} desc="Menjaga interaksi harian audiens di Instagram & TikTok." />
+              <ClayKPIDetailCard title="6. Cover Reels Optimal" actual={`${metrics.reelsCover.actual}%`} target="≥ 90% Optimal" status={metrics.reelsCover.status} subtitle={`${metrics.reelsCover.optimalCount} / ${metrics.reelsCover.totalReels} cover optimal`} desc="Kualitas thumbnail Reels sesuai standar branding." />
+            </div>
+          </div>
+
+          {/* Category C: Outcome */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-amber-700 ml-1">C. Outcome KPI (Bobot: 30%)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <ClayKPIDetailCard title="7. 3 Konten >100K Views" actual={`${metrics.views100k.count} / ${metrics.views100k.target}`} target="3 Konten Viral" status={metrics.views100k.status} subtitle={`${metrics.views100k.percentage}% target tercapai`} desc="Dihitung otomatis saat data views di Google Sheets terupdate." />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ClayTeamKPIDashboard({ teamOverview, onSelectCreator }) {
+      if (!teamOverview) return null;
+      return (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-xl font-extrabold text-slate-900">Matriks KPI Tim Kreatif</h2>
+            <p className="text-xs text-slate-500 font-medium">Monitoring perbandingan performa seluruh Content Creator.</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {teamOverview.creatorBreakdown.map((item) => (
+              <div
+                key={item.creator.user_id}
+                onClick={() => onSelectCreator(item.creator.user_id)}
+                className="clay-surface p-5 hover:bg-white cursor-pointer transition space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <img src={item.creator.avatar} alt={item.creator.name} className="w-12 h-12 rounded-2xl object-cover shadow-sm" />
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">{item.creator.name}</h3>
+                      <p className="text-xs text-slate-400">{item.creator.email}</p>
+                    </div>
+                  </div>
+                  <span className={`px-3 py-1 clay-pill text-[10px] font-extrabold ${KPI_BADGE[item.status]}`}>
+                    {item.status} ({item.overallScore}%)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-center">
+                  <div className="clay-inset p-2">
+                    <div className="text-[10px] text-slate-500 font-bold">Konten</div>
+                    <div className="text-xs font-black text-slate-800">{item.contentCount} / {item.targetContent}</div>
+                  </div>
+                  <div className="clay-inset p-2">
+                    <div className="text-[10px] text-slate-500 font-bold">Deadline</div>
+                    <div className="text-xs font-black text-indigo-600">{item.deadlineCompliance}%</div>
+                  </div>
+                  <div className="clay-inset p-2">
+                    <div className="text-[10px] text-slate-500 font-bold">100K+ Views</div>
+                    <div className="text-xs font-black text-amber-600">{item.views100kHits} / 3</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function ClayContentCalendar({ contentList, onSelectContent, onCreateNew }) {
+      const [filterPlatform, setFilterPlatform] = useState('ALL');
+      const [filterType, setFilterType] = useState('ALL');
+      const [search, setSearch] = useState('');
+
+      const filtered = useMemo(() => {
+        return contentList.filter(c => {
+          const matchP = filterPlatform === 'ALL' || c.platform === filterPlatform;
+          const matchT = filterType === 'ALL' || c.content_type === filterType;
+          const matchS = !search || c.content_title.toLowerCase().includes(search.toLowerCase()) || c.creator_name.toLowerCase().includes(search.toLowerCase());
+          return matchP && matchT && matchS;
+        });
+      }, [contentList, filterPlatform, filterType, search]);
+
+      const daysInMonth = 30;
+      const startOffset = 2;
+      const cells = [];
+      for (let i = 0; i < startOffset; i++) cells.push({ blank: true, key: `b-${i}` });
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dStr = `2026-09-${String(d).padStart(2, '0')}`;
+        cells.push({ blank: false, day: d, dateStr: dStr, items: filtered.filter(c => c.publish_date === dStr), key: `d-${d}` });
+      }
+
+      return (
+        <div className="space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-extrabold text-slate-900">Shared Content Calendar</h2>
+              <p className="text-xs text-slate-500 font-medium">Jadwal transparan tim untuk melihat slot publikasi.</p>
+            </div>
+            <button
+              onClick={() => onCreateNew()}
+              className="clay-btn bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs font-bold px-4 py-2.5 flex items-center space-x-1.5 self-start"
+            >
+              <Icon.Plus />
+              <span>Tambah Jadwal</span>
+            </button>
+          </div>
+
+          <div className="clay-surface p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center space-x-2 flex-1 min-w-[200px] clay-inset px-3 py-2">
+              <span className="text-slate-400"><Icon.Search /></span>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cari judul konten atau creator..."
+                className="w-full bg-transparent text-slate-800 font-medium focus:outline-none placeholder-slate-400"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <select
+                value={filterPlatform}
+                onChange={(e) => setFilterPlatform(e.target.value)}
+                className="clay-inset px-3 py-2 text-slate-800 font-bold focus:outline-none cursor-pointer"
+              >
+                <option value="ALL">Semua Platform</option>
+                <option value="Instagram">Instagram</option>
+                <option value="TikTok">TikTok</option>
+                <option value="YouTube Shorts">YouTube Shorts</option>
+              </select>
+
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="clay-inset px-3 py-2 text-slate-800 font-bold focus:outline-none cursor-pointer"
+              >
+                <option value="ALL">Semua Format</option>
+                <option value="Reels">Reels</option>
+                <option value="Carousel">Carousel</option>
+                <option value="Story">Story</option>
+                <option value="Video">Video</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="clay-surface p-4 overflow-hidden">
+            <div className="grid grid-cols-7 text-center text-[11px] font-extrabold text-slate-400 uppercase tracking-wider py-2 mb-2 border-b border-slate-200">
+              <div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div>
+            </div>
+
+            <div className="grid grid-cols-7 gap-2">
+              {cells.map((cell) => {
+                if (cell.blank) return <div key={cell.key} className="min-h-[100px] opacity-20" />;
+                return (
+                  <div
+                    key={cell.key}
+                    onClick={() => onCreateNew(cell.dateStr)}
+                    className="min-h-[100px] clay-card p-2 hover:bg-indigo-50/50 cursor-pointer transition flex flex-col justify-between"
+                  >
+                    <div className="flex justify-between text-xs font-black text-slate-700">
+                      <span>{cell.day}</span>
+                      {cell.items.length > 0 && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 clay-pill bg-indigo-100 text-indigo-700">
+                          {cell.items.length}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-1 overflow-y-auto max-h-[70px]">
+                      {cell.items.map((item) => (
+                        <div
+                          key={item.content_id}
+                          onClick={(e) => { e.stopPropagation(); onSelectContent(item); }}
+                          className={`p-1 rounded-xl text-[9px] font-bold truncate border shadow-xs ${STATUS_BADGE[item.status]}`}
+                          title={item.content_title}
+                        >
+                          {item.content_title}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ClayContentTable({ contentList, isDirector, onSelectContent }) {
+      const [search, setSearch] = useState('');
+      const filtered = contentList.filter(c => !search || c.content_title.toLowerCase().includes(search.toLowerCase()) || c.creator_name.toLowerCase().includes(search.toLowerCase()));
+
+      return (
+        <div className="space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-extrabold text-slate-900">{isDirector ? 'All Master Content' : 'My Assigned Content'}</h2>
+              <p className="text-xs text-slate-500 font-medium">Pipeline konten dan pembaruan metrik live.</p>
+            </div>
+
+            <div className="clay-inset px-3 py-2 flex items-center space-x-2 text-xs">
+              <span className="text-slate-400"><Icon.Search /></span>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cari konten..."
+                className="bg-transparent text-slate-800 font-medium focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="clay-surface p-5 overflow-hidden">
+            <table className="w-full text-left text-xs">
+              <thead className="text-slate-400 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                <tr>
+                  <th className="py-2.5 px-3">Judul & Format</th>
+                  <th className="py-2.5 px-3">Creator</th>
+                  <th className="py-2.5 px-3">Jadwal Rilis</th>
+                  <th className="py-2.5 px-3">Cover QA</th>
+                  <th className="py-2.5 px-3">Views</th>
+                  <th className="py-2.5 px-3 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {filtered.map((item) => (
+                  <tr
+                    key={item.content_id}
+                    onClick={() => onSelectContent(item)}
+                    className="hover:bg-indigo-50/40 cursor-pointer transition"
+                  >
+                    <td className="py-3 px-3">
+                      <div className="font-bold text-slate-900">{item.content_title}</div>
+                      <div className="text-[10px] text-indigo-600 font-bold">{item.content_type} · {item.platform}</div>
+                    </td>
+                    <td className="py-3 px-3 font-semibold text-slate-700">{item.creator_name}</td>
+                    <td className="py-3 px-3 font-bold text-slate-600">{item.publish_date}</td>
+                    <td className="py-3 px-3">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 clay-pill ${
+                        item.cover_status === 'OPTIMAL' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                      }`}>
+                        {item.cover_status || 'OPTIMAL'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 font-extrabold text-slate-900">{(Number(item.views) || 0).toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right">
+                      <span className={`px-2.5 py-1 clay-pill text-[10px] font-bold ${STATUS_BADGE[item.status]}`}>
+                        {item.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    function ClayGoogleSheetsSync({ backendService, onManualSync, isSyncing, lastSyncTime, onSaveApiUrl }) {
+      const [apiUrl, setApiUrl] = useState(backendService.gasApiUrl || '');
+
+      return (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-xl font-extrabold text-slate-900">Integrasi Live Google Sheets</h2>
+            <p className="text-xs text-slate-500 font-medium">Hubungkan Web App Apps Script agar data tersimpan langsung ke Google Spreadsheet.</p>
+          </div>
+
+          <div className="clay-surface p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900">Koneksi Backend Google Apps Script</h3>
+                <p className="text-xs text-slate-500">Gunakan URL Deployment Web App Apps Script Anda.</p>
+              </div>
+              <button
+                onClick={onManualSync}
+                disabled={isSyncing}
+                className="clay-btn bg-teal-500 text-white px-4 py-2 text-xs font-bold flex items-center space-x-2"
+              >
+                <span className={isSyncing ? 'animate-spin' : ''}><Icon.Refresh /></span>
+                <span>Sinkronkan Sekarang</span>
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1">Google Apps Script Web App URL</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={apiUrl}
+                  onChange={(e) => setApiUrl(e.target.value)}
+                  placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+                  className="flex-1 clay-inset px-4 py-2.5 text-xs text-slate-800 font-mono font-medium focus:outline-none"
+                />
+                <button
+                  onClick={() => onSaveApiUrl(apiUrl)}
+                  className="clay-btn bg-indigo-600 text-white text-xs font-bold px-4 py-2.5"
+                >
+                  Simpan URL
+                </button>
+              </div>
+            </div>
+
+            <div className="clay-inset p-3 flex items-center justify-between text-xs font-semibold text-slate-700">
+              <div className="flex items-center space-x-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Status: Terhubung · Terakhir disinkronkan: {lastSyncTime}</span>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-700">200 OK</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ClayCreatorsDirectory({ users, teamOverview, onSelectCreator }) {
+      return (
+        <div className="space-y-5">
+          <h2 className="text-xl font-extrabold text-slate-900">Daftar Content Creator</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {users.map((creator) => {
+              const stat = teamOverview?.creatorBreakdown?.find(c => c.creator.user_id === creator.user_id);
+              return (
+                <div
+                  key={creator.user_id}
+                  onClick={() => onSelectCreator(creator.user_id)}
+                  className="clay-surface p-5 hover:bg-white cursor-pointer transition flex items-center space-x-4"
+                >
+                  <img src={creator.avatar} alt={creator.name} className="w-14 h-14 rounded-2xl object-cover shadow-sm" />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-bold text-slate-900">{creator.name}</h3>
+                    <p className="text-xs text-slate-500">{creator.title || creator.email}</p>
+                    {stat && (
+                      <div className="flex items-center space-x-2 mt-2">
+                        <span className="text-[10px] font-bold px-2 py-0.5 clay-pill bg-indigo-50 text-indigo-700">
+                          Skor: {stat.overallScore}%
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 clay-pill bg-teal-50 text-teal-700">
+                          {stat.contentCount}/{stat.targetContent} Konten
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    function ClaySettingsView({ config, onSave }) {
+      const [form, setForm] = useState({ ...config });
+      return (
+        <div className="clay-surface p-6 max-w-2xl space-y-6">
+          <h2 className="text-xl font-extrabold text-slate-900">Konfigurasi Target & Bobot KPI</h2>
+          <div className="grid grid-cols-2 gap-4 text-xs font-bold text-slate-700">
+            <div>
+              <label className="block mb-1">Target Konten Bulanan</label>
+              <input type="number" value={form.monthlyContentTarget} onChange={(e) => setForm({ ...form, monthlyContentTarget: Number(e.target.value) })} className="w-full clay-inset p-2.5" />
+            </div>
+            <div>
+              <label className="block mb-1">Target Story Harian</label>
+              <input type="number" value={form.dailyStoryTarget} onChange={(e) => setForm({ ...form, dailyStoryTarget: Number(e.target.value) })} className="w-full clay-inset p-2.5" />
+            </div>
+          </div>
+          <button onClick={() => onSave(form)} className="w-full clay-btn bg-indigo-600 text-white font-bold py-3 text-xs">
+            Simpan & Hitung Ulang Semua KPI
+          </button>
+        </div>
+      );
+    }
+
+    function ClayProfileSpecs({ user, config }) {
+      return (
+        <div className="clay-surface p-6 max-w-xl space-y-4">
+          <div className="flex items-center space-x-4">
+            <img src={user.avatar} alt={user.name} className="w-14 h-14 rounded-2xl object-cover shadow-sm" />
+            <div>
+              <h2 className="text-lg font-extrabold text-slate-900">{user.name}</h2>
+              <p className="text-xs text-slate-500">{user.email}</p>
+              <span className="text-[10px] font-bold px-2 py-0.5 clay-pill bg-indigo-100 text-indigo-700 mt-1 inline-block">
+                {user.role}
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ClayContentModal({ content, currentUser, users, onClose, onSave }) {
+      const [formData, setFormData] = useState({ ...content });
+      const isDirector = currentUser.role === 'creative_director';
+
+      return (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="clay-surface bg-white max-w-xl w-full p-6 space-y-4 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h3 className="text-base font-extrabold text-slate-900">
+                {formData.content_id ? `Tugas #${formData.content_id}` : 'Buat Konten Baru'}
+              </h3>
+              <button onClick={onClose} className="clay-btn p-1.5 text-slate-400 hover:text-slate-800">
+                <Icon.Close />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs font-bold text-slate-700">
+              <div>
+                <label className="block mb-1">Judul Konten</label>
+                <input type="text" value={formData.content_title} onChange={(e) => setFormData({ ...formData, content_title: e.target.value })} className="w-full clay-inset p-2.5 font-medium text-slate-900" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block mb-1">Format</label>
+                  <select value={formData.content_type} onChange={(e) => setFormData({ ...formData, content_type: e.target.value })} className="w-full clay-inset p-2.5">
+                    <option value="Reels">Reels</option>
+                    <option value="Carousel">Carousel</option>
+                    <option value="Single Post">Single Post</option>
+                    <option value="Story">Story</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block mb-1">Status</label>
+                  <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full clay-inset p-2.5">
+                    <option value="IN PRODUCTION">In Production</option>
+                    <option value="SUBMITTED">Submitted</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="PUBLISHED">Published</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block mb-1">Tanggal Rilis</label>
+                  <input type="date" value={formData.publish_date || ''} onChange={(e) => setFormData({ ...formData, publish_date: e.target.value })} className="w-full clay-inset p-2.5 font-medium" />
+                </div>
+                <div>
+                  <label className="block mb-1">Views (Recalculates KPI)</label>
+                  <input type="number" value={formData.views || 0} onChange={(e) => setFormData({ ...formData, views: Number(e.target.value) })} className="w-full clay-inset p-2.5 font-medium text-indigo-600 font-mono" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-200">
+              <button onClick={onClose} className="clay-btn bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600">Batal</button>
+              <button onClick={() => onSave(formData)} className="clay-btn bg-indigo-600 px-5 py-2 text-xs font-bold text-white">Simpan Perubahan</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ClayKPIMiniCard({ label, value, subtext, status }) {
+      return (
+        <div className="clay-surface p-3.5 flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+          <div className="my-1.5">
+            <div className="text-lg font-black text-slate-900">{value}</div>
+            <div className="text-[10px] text-slate-500 font-medium">{subtext}</div>
+          </div>
+          <span className={`text-[9px] font-extrabold px-2 py-0.5 clay-pill text-center ${KPI_BADGE[status] || 'bg-slate-100 text-slate-600'}`}>
+            {status}
+          </span>
+        </div>
+      );
+    }
+
+    function ClayKPIDetailCard({ title, actual, target, status, subtitle, desc }) {
+      return (
+        <div className="clay-surface p-4 flex flex-col justify-between space-y-2">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <h4 className="text-xs font-extrabold text-slate-900">{title}</h4>
+              <span className={`px-2 py-0.5 clay-pill text-[9px] font-extrabold ${KPI_BADGE[status]}`}>{status}</span>
+            </div>
+            <div className="flex items-baseline space-x-2">
+              <span className="text-2xl font-black text-slate-900">{actual}</span>
+              <span className="text-xs font-bold text-slate-400">Target: {target}</span>
+            </div>
+            <div className="text-[11px] font-bold text-indigo-600 mt-0.5">{subtitle}</div>
+          </div>
+          <p className="text-[10px] text-slate-500 font-medium pt-2 border-t border-slate-200 leading-relaxed">{desc}</p>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
