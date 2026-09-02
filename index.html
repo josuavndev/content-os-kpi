@@ -840,7 +840,42 @@ const [teamOverviewData, setTeamOverview] = useState(null);
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
       };
+useEffect(() => {
+  if (!currentUser) return;
 
+  if (
+    currentUser.role === 'creative_director' &&
+    !selectedCreatorForDrilldown
+  ) {
+    setActiveCreatorKPIData(null);
+    return;
+  }
+
+  let cancelled = false;
+
+  const creatorId =
+    currentUser.role === 'creative_director'
+      ? selectedCreatorForDrilldown
+      : currentUser.user_id;
+
+  backendService
+    .getKPIDashboard(currentUser, creatorId, filterMonth)
+    .then(data => {
+      if (!cancelled) {
+        setActiveCreatorKPIData(data);
+      }
+    })
+    .catch(err => {
+      if (!cancelled) {
+        showToast(err.message, 'error');
+        setActiveCreatorKPIData(null);
+      }
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, [currentUser, selectedCreatorForDrilldown, filterMonth]);
 const refreshData = useCallback(async () => {
   if (!currentUser) return;
 
@@ -1079,38 +1114,7 @@ useEffect(() => {
 
       const isDirector = currentUser.role === 'creative_director';
 
-useEffect(() => {
-  if (!currentUser) return;
 
-  if (isDirector && !selectedCreatorForDrilldown) {
-    setActiveCreatorKPIData(null);
-    return;
-  }
-
-  let cancelled = false;
-
-  const creatorId = isDirector
-    ? selectedCreatorForDrilldown
-    : currentUser.user_id;
-
-  backendService
-    .getKPIDashboard(currentUser, creatorId, filterMonth)
-    .then(data => {
-      if (!cancelled) {
-        setActiveCreatorKPIData(data);
-      }
-    })
-    .catch(err => {
-      if (!cancelled) {
-        showToast(err.message, 'error');
-        setActiveCreatorKPIData(null);
-      }
-    });
-
-  return () => {
-    cancelled = true;
-  };
-}, [currentUser, isDirector, selectedCreatorForDrilldown, filterMonth]);
 
       const teamOverview = teamOverviewData;
 
