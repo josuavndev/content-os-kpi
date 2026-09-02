@@ -554,7 +554,22 @@ console.log('LOGIN/API RESPONSE:', data);
 
     this.users = result.users || [];
     this.content = result.content || [];
-    this.config = result.kpiConfig || {};
+    this.config = Array.isArray(result.kpiConfig)
+  ? {
+      monthlyContentTarget: Number(result.kpiConfig.find(k => k.kpi_id === 'KPI001')?.target) || INITIAL_CONFIG.monthlyContentTarget,
+      dailyStoryTarget: Number(result.kpiConfig.find(k => k.kpi_id === 'KPI002')?.target) || INITIAL_CONFIG.dailyStoryTarget,
+      views100kTarget: Number(result.kpiConfig.find(k => k.kpi_id === 'KPI003')?.target) || INITIAL_CONFIG.views100kTarget,
+      h3SubmissionDays: Number(result.kpiConfig.find(k => k.kpi_id === 'KPI004')?.target) || INITIAL_CONFIG.h3SubmissionDays,
+      unexpectedMaxDays: Number(result.kpiConfig.find(k => k.kpi_id === 'KPI005')?.target) || INITIAL_CONFIG.unexpectedMaxDays,
+      views100kThreshold: Number(result.kpiConfig.find(k => k.kpi_id === 'KPI006')?.target) || INITIAL_CONFIG.views100kThreshold,
+      optimalReelsCoverRate: Number(result.kpiConfig.find(k => k.kpi_id === 'KPI007')?.target) || INITIAL_CONFIG.optimalReelsCoverRate,
+      weights: {
+        process: Number(result.kpiConfig.find(k => k.kpi_id === 'KPI008')?.target) || INITIAL_CONFIG.weights.process,
+        output: Number(result.kpiConfig.find(k => k.kpi_id === 'KPI009')?.target) || INITIAL_CONFIG.weights.output,
+        outcome: Number(result.kpiConfig.find(k => k.kpi_id === 'KPI010')?.target) || INITIAL_CONFIG.weights.outcome
+      }
+    }
+  : result.kpiConfig || INITIAL_CONFIG;
     this.lastSynced = new Date();
 
     return result;
