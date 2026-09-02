@@ -833,7 +833,7 @@ console.log('LOGIN/API RESPONSE:', data);
       const [selectedContent, setSelectedContent] = useState(null);
       const [isContentModalOpen, setIsContentModalOpen] = useState(false);
       const [selectedCreatorForDrilldown, setSelectedCreatorForDrilldown] = useState(null);
-
+const [teamOverviewData, setTeamOverview] = useState(null);
       const [toast, setToast] = useState(null);
       const showToast = (message, type = 'info') => {
         setToast({ message, type });
@@ -852,7 +852,28 @@ console.log('LOGIN/API RESPONSE:', data);
           showToast(err.message, 'error');
         }
       }, [currentUser, filterMonth]);
+useEffect(() => {
+  if (!currentUser || currentUser.role !== 'creative_director') return;
 
+  let cancelled = false;
+
+  backendService
+    .getTeamKPIOverview(currentUser, filterMonth)
+    .then(data => {
+      if (!cancelled) {
+        setTeamOverview(data);
+      }
+    })
+    .catch(err => {
+      if (!cancelled) {
+        showToast(err.message, 'error');
+      }
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, [currentUser, filterMonth]);
       useEffect(() => {
         if (!currentUser) return;
         refreshData();
@@ -1053,7 +1074,7 @@ console.log('LOGIN/API RESPONSE:', data);
         ? backendService.getKPIDashboard(currentUser, currentUser.user_id, filterMonth)
         : null;
 
-      const teamOverview = isDirector ? backendService.getTeamKPIOverview(currentUser, filterMonth) : null;
+      const teamOverview = teamOverviewData;
 
       return (
         <div className="min-h-screen bg-[#e8ecf4] text-slate-800 flex flex-col antialiased">
