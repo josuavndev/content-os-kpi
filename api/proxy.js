@@ -12,19 +12,39 @@ export default async function handler(req, res) {
     const response = await fetch(GAS_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'text/plain;charset=utf-8'
       },
-      body: JSON.stringify(req.body)
+      body: typeof req.body === 'string'
+        ? req.body
+        : JSON.stringify(req.body || {})
     });
 
-    const data = await response.json();
+    const text = await response.text();
+
+    console.log('GAS STATUS:', response.status);
+    console.log('GAS RESPONSE:', text);
+
+    let data;
+
+    try {
+      data = JSON.parse(text);
+    } catch (parseError) {
+      return res.status(502).json({
+        status: 'error',
+        message: 'Google Apps Script tidak mengembalikan JSON',
+        gasStatus: response.status,
+        gasResponse: text.substring(0, 1000)
+      });
+    }
 
     return res.status(response.status).json(data);
 
   } catch (error) {
+    console.error('PROXY ERROR:', error);
+
     return res.status(500).json({
       status: 'error',
-      message: error.message
+      message: error.message || 'Proxy error'
     });
   }
 }
