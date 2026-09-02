@@ -38,14 +38,10 @@ export default async function handler(req, res) {
         });
       }
 
-      response = await fetch(location, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body,
-        redirect: 'follow'
-      });
+response = await fetch(location, {
+  method: 'GET',
+  redirect: 'follow'
+});
 
       console.log('REDIRECT STATUS:', response.status);
       console.log('REDIRECT URL:', response.url);
