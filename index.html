@@ -840,18 +840,28 @@ const [teamOverviewData, setTeamOverview] = useState(null);
         setTimeout(() => setToast(null), 3500);
       };
 
-      const refreshData = useCallback(() => {
-        if (!currentUser) return;
-        try {
-          const items = backendService.getSharedCalendar(currentUser, { month: filterMonth });
-          setContentList(items);
-          setUsers([...backendService.users]);
-          setConfig({ ...backendService.config });
-          setLastSyncTime(backendService.lastSynced.toLocaleTimeString());
-        } catch (err) {
-          showToast(err.message, 'error');
-        }
-      }, [currentUser, filterMonth]);
+const refreshData = useCallback(async () => {
+  if (!currentUser) return;
+
+  try {
+    const items = await backendService.getSharedCalendar(
+      currentUser,
+      { month: filterMonth }
+    );
+
+    setContentList(items);
+    setUsers([...backendService.users]);
+    setConfig({ ...backendService.config });
+
+    if (backendService.lastSynced) {
+      setLastSyncTime(
+        backendService.lastSynced.toLocaleTimeString()
+      );
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}, [currentUser, filterMonth]);
 useEffect(() => {
   if (!currentUser || currentUser.role !== 'creative_director') return;
 
