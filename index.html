@@ -834,6 +834,7 @@ console.log('LOGIN/API RESPONSE:', data);
       const [isContentModalOpen, setIsContentModalOpen] = useState(false);
       const [selectedCreatorForDrilldown, setSelectedCreatorForDrilldown] = useState(null);
 const [teamOverviewData, setTeamOverview] = useState(null);
+      const [activeCreatorKPIData, setActiveCreatorKPIData] = useState(null);
       const [toast, setToast] = useState(null);
       const showToast = (message, type = 'info') => {
         setToast({ message, type });
@@ -1078,11 +1079,38 @@ useEffect(() => {
 
       const isDirector = currentUser.role === 'creative_director';
 
-      const activeCreatorKPIData = isDirector && selectedCreatorForDrilldown
-        ? backendService.getKPIDashboard(currentUser, selectedCreatorForDrilldown, filterMonth)
-        : !isDirector
-        ? backendService.getKPIDashboard(currentUser, currentUser.user_id, filterMonth)
-        : null;
+useEffect(() => {
+  if (!currentUser) return;
+
+  if (isDirector && !selectedCreatorForDrilldown) {
+    setActiveCreatorKPIData(null);
+    return;
+  }
+
+  let cancelled = false;
+
+  const creatorId = isDirector
+    ? selectedCreatorForDrilldown
+    : currentUser.user_id;
+
+  backendService
+    .getKPIDashboard(currentUser, creatorId, filterMonth)
+    .then(data => {
+      if (!cancelled) {
+        setActiveCreatorKPIData(data);
+      }
+    })
+    .catch(err => {
+      if (!cancelled) {
+        showToast(err.message, 'error');
+        setActiveCreatorKPIData(null);
+      }
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, [currentUser, isDirector, selectedCreatorForDrilldown, filterMonth]);
 
       const teamOverview = teamOverviewData;
 
