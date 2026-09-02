@@ -9,35 +9,41 @@ export default async function handler(req, res) {
       });
     }
 
+    const body =
+      typeof req.body === 'string'
+        ? req.body
+        : JSON.stringify(req.body || {});
+
     const response = await fetch(GAS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8'
       },
-      body: typeof req.body === 'string'
-        ? req.body
-        : JSON.stringify(req.body || {})
+      body,
+      redirect: 'follow'
     });
 
     const text = await response.text();
 
     console.log('GAS STATUS:', response.status);
-    console.log('GAS RESPONSE:', text);
+    console.log('GAS URL:', response.url);
+    console.log('GAS RESPONSE:', text.substring(0, 2000));
 
     let data;
 
     try {
       data = JSON.parse(text);
-    } catch (parseError) {
+    } catch (error) {
       return res.status(502).json({
         status: 'error',
-        message: 'Google Apps Script tidak mengembalikan JSON',
+        message: 'Google Apps Script mengembalikan HTML, bukan JSON',
         gasStatus: response.status,
+        gasUrl: response.url,
         gasResponse: text.substring(0, 1000)
       });
     }
 
-    return res.status(response.status).json(data);
+    return res.status(200).json(data);
 
   } catch (error) {
     console.error('PROXY ERROR:', error);
