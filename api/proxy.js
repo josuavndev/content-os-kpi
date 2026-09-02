@@ -14,20 +14,47 @@ export default async function handler(req, res) {
         ? req.body
         : JSON.stringify(req.body || {});
 
-    const response = await fetch(GAS_URL, {
+    let response = await fetch(GAS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8'
       },
       body,
-      redirect: 'follow'
+      redirect: 'manual'
     });
+
+    console.log('FIRST STATUS:', response.status);
+    console.log('FIRST LOCATION:', response.headers.get('location'));
+
+    // Google Apps Script biasanya melakukan redirect.
+    // Ikuti redirect secara manual agar POST tetap dipertahankan.
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+
+      if (!location) {
+        return res.status(502).json({
+          status: 'error',
+          message: 'Google Apps Script melakukan redirect tanpa Location'
+        });
+      }
+
+      response = await fetch(location, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body,
+        redirect: 'follow'
+      });
+
+      console.log('REDIRECT STATUS:', response.status);
+      console.log('REDIRECT URL:', response.url);
+    }
 
     const text = await response.text();
 
-    console.log('GAS STATUS:', response.status);
-    console.log('GAS URL:', response.url);
-    console.log('GAS RESPONSE:', text.substring(0, 2000));
+    console.log('FINAL STATUS:', response.status);
+    console.log('FINAL RESPONSE:', text.substring(0, 2000));
 
     let data;
 
@@ -36,7 +63,7 @@ export default async function handler(req, res) {
     } catch (error) {
       return res.status(502).json({
         status: 'error',
-        message: 'Google Apps Script mengembalikan HTML, bukan JSON',
+        message: 'Google Apps Script masih mengembalikan HTML, bukan JSON',
         gasStatus: response.status,
         gasUrl: response.url,
         gasResponse: text.substring(0, 1000)
