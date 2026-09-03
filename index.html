@@ -801,12 +801,12 @@ async saveContent(currentUser, contentData) {
 
   return data;
 }
-async deleteContent(currentUser, contentId) {
+async deleteContent(currentUser, rowNumber) {
   this._authorize(currentUser);
 
   const data = await this._post({
     action: 'deleteContent',
-    content_id: contentId
+    row_number: rowNumber
   });
 
   if (data.status !== 'ok') {
@@ -1540,9 +1540,9 @@ useEffect(() => {
     showToast(err.message, 'error');
   }
 }}
-              onDelete={async (contentId) => {
+              onDelete={async (rowNumber) => {
   try {
-    await backendService.deleteContent(currentUser, contentId);
+    await backendService.deleteContent(currentUser, rowNumber);
     await refreshData();
     setIsContentModalOpen(false);
     showToast('Content berhasil dihapus!', 'success');
@@ -2137,12 +2137,12 @@ function ClayContentTable({ contentList, isDirector, onSelectContent }) {
         if (!window.confirm(`Hapus ${selectedIds.length} content yang dipilih?`)) return;
 
         try {
-          for (const contentId of selectedIds) {
-            await backendService.deleteContent(
-              currentUser,
-              contentId
-            );
-          }
+for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
+  await backendService.deleteContent(
+    currentUser,
+    rowNumber
+  );
+}
 
           setSelectedIds([]);
           await refreshData();
@@ -2179,12 +2179,12 @@ function ClayContentTable({ contentList, isDirector, onSelectContent }) {
   <div className="flex items-center gap-3">
     <input
       type="checkbox"
-      checked={selectedIds.includes(item.content_id)}
+      checked={selectedIds.includes(item.row_number)}
       onChange={(e) => {
         setSelectedIds(prev =>
           e.target.checked
-            ? [...prev, item.content_id]
-            : prev.filter(id => id !== item.content_id)
+            ? [...prev, item.row_number]
+            : prev.filter(id => id !== item.row_number)
         );
       }}
       onClick={(e) => e.stopPropagation()}
