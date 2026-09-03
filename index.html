@@ -848,7 +848,14 @@ useEffect(() => {
       const [authError, setAuthError] = useState('');
       const [forgotModal, setForgotModal] = useState(false);
 
-      const [activeTab, setActiveTab] = useState('dashboard');
+const [activeTab, setActiveTabState] = useState(
+  () => localStorage.getItem('content_os_tab') || 'dashboard'
+);
+
+const setActiveTab = (tab) => {
+  localStorage.setItem('content_os_tab', tab);
+  setActiveTabState(tab);
+};
       const [filterMonth, setFilterMonth] = useState('2026-09');
 
       const [contentList, setContentList] = useState([]);
