@@ -2103,7 +2103,14 @@ useEffect(() => {
       );
     }
 
-function ClayContentTable({ contentList, isDirector, onSelectContent }) {
+function ClayContentTable({
+  contentList,
+  isDirector,
+  currentUser,
+  refreshData,
+  showToast,
+  onSelectContent
+}) {
       const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
       const filtered = contentList.filter(c => !search || c.content_title.toLowerCase().includes(search.toLowerCase()) || c.creator_name.toLowerCase().includes(search.toLowerCase()));
