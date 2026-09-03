@@ -2304,7 +2304,10 @@ useEffect(() => {
     }
 
     function ClayContentModal({ content, currentUser, users, onClose, onSave, onDelete }) {
-      const [formData, setFormData] = useState({ ...content });
+      const [formData, setFormData] = useState({
+  ...content,
+  content_id: content.content_id || content.contentId || ''
+});
       const isDirector = currentUser.role === 'creative_director';
 
       return (
