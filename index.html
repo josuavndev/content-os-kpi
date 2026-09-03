@@ -802,7 +802,7 @@ async saveContent(currentUser, contentData) {
   return data;
 }
 async deleteContent(currentUser, contentId) {
-  this._authorize(currentUser, 'creative_director');
+  this._authorize(currentUser);
 
   const data = await this._post({
     action: 'deleteContent',
@@ -1536,6 +1536,16 @@ useEffect(() => {
     await refreshData();
     setIsContentModalOpen(false);
     showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}}
+              onDelete={async (contentId) => {
+  try {
+    await backendService.deleteContent(currentUser, contentId);
+    await refreshData();
+    setIsContentModalOpen(false);
+    showToast('Content berhasil dihapus!', 'success');
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -2293,7 +2303,7 @@ useEffect(() => {
       );
     }
 
-    function ClayContentModal({ content, currentUser, users, onClose, onSave }) {
+    function ClayContentModal({ content, currentUser, users, onClose, onSave, onDelete }) {
       const [formData, setFormData] = useState({ ...content });
       const isDirector = currentUser.role === 'creative_director';
 
@@ -2348,10 +2358,36 @@ useEffect(() => {
               </div>
             </div>
 
-            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-200">
-              <button onClick={onClose} className="clay-btn bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600">Batal</button>
-              <button onClick={() => onSave(formData)} className="clay-btn bg-indigo-600 px-5 py-2 text-xs font-bold text-white">Simpan Perubahan</button>
-            </div>
+<div className="flex justify-between pt-3 border-t border-slate-200">
+  {(
+    <button
+      onClick={() => {
+        if (window.confirm('Hapus content ini?')) {
+          onDelete(formData.content_id);
+        }
+      }}
+      className="clay-btn bg-red-100 px-4 py-2 text-xs font-bold text-red-600"
+    >
+      Hapus
+    </button>
+  )}
+
+  <div className="flex space-x-2 ml-auto">
+    <button
+      onClick={onClose}
+      className="clay-btn bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600"
+    >
+      Batal
+    </button>
+
+    <button
+      onClick={() => onSave(formData)}
+      className="clay-btn bg-indigo-600 px-5 py-2 text-xs font-bold text-white"
+    >
+      Simpan Perubahan
+    </button>
+  </div>
+</div>
           </div>
         </div>
       );
