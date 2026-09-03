@@ -783,6 +783,7 @@ console.log('LOGIN/API RESPONSE:', data);
   }
 
 async saveContent(currentUser, contentData) {
+  
   this._authorize(currentUser);
 
   const data = await this._post({
@@ -800,7 +801,24 @@ async saveContent(currentUser, contentData) {
 
   return data;
 }
+async deleteContent(currentUser, contentId) {
+  this._authorize(currentUser, 'creative_director');
 
+  const data = await this._post({
+    action: 'deleteContent',
+    content_id: contentId
+  });
+
+  if (data.status !== 'ok') {
+    throw new Error(
+      data.message || 'Gagal menghapus content'
+    );
+  }
+
+  await this._loadData();
+
+  return data;
+}
   async saveConfig(currentUser, newConfig) {
     this._authorize(
       currentUser,
