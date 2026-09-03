@@ -1512,16 +1512,16 @@ useEffect(() => {
               currentUser={currentUser}
               users={users}
               onClose={() => setIsContentModalOpen(false)}
-              onSave={(updated) => {
-                try {
-                  backendService.saveContent(currentUser, updated);
-                  refreshData();
-                  setIsContentModalOpen(false);
-                  showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
-                } catch (err) {
-                  showToast(err.message, 'error');
-                }
-              }}
+             onSave={async (updated) => {
+  try {
+    await backendService.saveContent(currentUser, updated);
+    await refreshData();
+    setIsContentModalOpen(false);
+    showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}}
             />
           )}
         </div>
