@@ -1504,6 +1504,7 @@ if (!currentUser) {
   isDirector={isDirector}
   currentUser={currentUser}
   bulkDeleteMode={bulkDeleteMode}
+  onExitBulkDeleteMode={() => setBulkDeleteMode(false)}
   refreshData={refreshData}
   showToast={showToast}
   onSelectContent={(item) => { setSelectedContent(item); setIsContentModalOpen(true); }}
@@ -2153,7 +2154,8 @@ function ClayContentTable({
   refreshData,
   showToast,
   onSelectContent,
-  bulkDeleteMode
+  bulkDeleteMode,
+  onExitBulkDeleteMode
 }) {
       const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
@@ -2199,6 +2201,7 @@ for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
 }
 
           setSelectedIds([]);
+          onExitBulkDeleteMode();
           await refreshData();
           showToast('Content terpilih berhasil dihapus!', 'success');
         } catch (err) {
