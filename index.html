@@ -782,22 +782,24 @@ console.log('LOGIN/API RESPONSE:', data);
     };
   }
 
-  async saveContent(currentUser, contentData) {
-    this._authorize(currentUser);
+async saveContent(currentUser, contentData) {
+  this._authorize(currentUser);
 
-    /*
-     * Untuk sementara data tersimpan di backend
-     * Google Sheets melalui API.
-     *
-     * Fungsi write API belum tersedia di Apps Script
-     * yang sekarang, jadi kita jangan pura-pura
-     * menganggap data sudah tersimpan permanen.
-     */
+  const data = await this._post({
+    action: 'saveContent',
+    content: contentData
+  });
 
+  if (data.status !== 'ok') {
     throw new Error(
-      'Fitur simpan content belum dihubungkan ke Google Sheets API.'
+      data.message || 'Gagal menyimpan content'
     );
   }
+
+  await this._loadData();
+
+  return data;
+}
 
   async saveConfig(currentUser, newConfig) {
     this._authorize(
