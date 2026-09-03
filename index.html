@@ -857,11 +857,28 @@ async deleteContent(currentUser, rowNumber) {
 useEffect(() => {
   const savedUser = localStorage.getItem('content_os_user');
 
-  if (savedUser) {
-    const user = JSON.parse(savedUser);
-    backendService.token = user.token;
-    setCurrentUser(user);
-  }
+  if (!savedUser) return;
+
+  const restoreSession = async () => {
+    try {
+      const user = JSON.parse(savedUser);
+
+      backendService.token = user.token;
+
+      // Validasi apakah session masih aktif
+      await backendService._loadData();
+
+      setCurrentUser(user);
+    } catch (error) {
+      // Session sudah expired / tidak valid
+      localStorage.removeItem('content_os_user');
+      localStorage.removeItem('content_os_tab');
+      backendService.token = null;
+      setCurrentUser(null);
+    }
+  };
+
+  restoreSession();
 }, []);
       const [authEmail, setAuthEmail] = useState('director@creative.studio');
       const [authPassword, setAuthPassword] = useState('director123');
