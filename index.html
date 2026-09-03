@@ -1011,11 +1011,16 @@ useEffect(() => {
         }
       };
 
-      const handleLogout = () => {
-        setCurrentUser(null);
-        setSelectedCreatorForDrilldown(null);
-        showToast('Berhasil keluar secara aman', 'info');
-      };
+    const handleLogout = () => {
+  localStorage.removeItem('content_os_user');
+  localStorage.removeItem('content_os_tab');
+
+  backendService.token = null;
+
+  setCurrentUser(null);
+  setSelectedCreatorForDrilldown(null);
+  showToast('Berhasil keluar secara aman', 'info');
+};
 
       const handleQuickSwitch = async (email) => {
   setAuthEmail(email);
