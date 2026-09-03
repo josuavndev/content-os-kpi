@@ -966,8 +966,11 @@ useEffect(() => {
         e.preventDefault();
         setAuthError('');
         try {
-          const { user } = await backendService.authenticate(authEmail, authPassword);
-          localStorage.setItem('content_os_user', JSON.stringify(user));
+          const { user, token } = await backendService.authenticate(authEmail, authPassword);
+          localStorage.setItem(
+  'content_os_user',
+  JSON.stringify({ ...user, token })
+);
           setCurrentUser(user);
           setActiveTab('dashboard');
           showToast(`Selamat datang kembali, ${user.name}!`, 'success');
