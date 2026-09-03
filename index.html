@@ -834,11 +834,13 @@ console.log('LOGIN/API RESPONSE:', data);
 
     function App() {
       const [currentUser, setCurrentUser] = useState(null);
-      useEffect(() => {
+useEffect(() => {
   const savedUser = localStorage.getItem('content_os_user');
 
   if (savedUser) {
-    setCurrentUser(JSON.parse(savedUser));
+    const user = JSON.parse(savedUser);
+    backendService.token = user.token;
+    setCurrentUser(user);
   }
 }, []);
       const [authEmail, setAuthEmail] = useState('director@creative.studio');
