@@ -1461,11 +1461,14 @@ useEffect(() => {
 
               {/* 5. ALL CONTENT / MY CONTENT TABLE */}
               {(activeTab === 'all_content' || activeTab === 'my_content') && (
-                <ClayContentTable
-                  contentList={isDirector ? contentList : contentList.filter(c => c.creator_id === currentUser.user_id)}
-                  isDirector={isDirector}
-                  onSelectContent={(item) => { setSelectedContent(item); setIsContentModalOpen(true); }}
-                />
+<ClayContentTable
+  contentList={isDirector ? contentList : contentList.filter(c => c.creator_id === currentUser.user_id)}
+  isDirector={isDirector}
+  currentUser={currentUser}
+  refreshData={refreshData}
+  showToast={showToast}
+  onSelectContent={(item) => { setSelectedContent(item); setIsContentModalOpen(true); }}
+/>
               )}
 
               {/* 6. KPI DASHBOARDS */}
