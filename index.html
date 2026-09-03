@@ -854,10 +854,14 @@ async deleteContent(currentUser, rowNumber) {
 
     function App() {
       const [currentUser, setCurrentUser] = useState(null);
+      const [isRestoringSession, setIsRestoringSession] = useState(true);
 useEffect(() => {
   const savedUser = localStorage.getItem('content_os_user');
 
-  if (!savedUser) return;
+if (!savedUser) {
+  setIsRestoringSession(false);
+  return;
+}
 
   const restoreSession = async () => {
     try {
@@ -869,6 +873,7 @@ useEffect(() => {
       await backendService._loadData();
 
       setCurrentUser(user);
+setIsRestoringSession(false);
     } catch (error) {
       // Session sudah expired / tidak valid
       localStorage.removeItem('content_os_user');
