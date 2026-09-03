@@ -870,10 +870,10 @@ if (!savedUser) {
       backendService.token = user.token;
 
       // Validasi apakah session masih aktif
-      await backendService._loadData();
-
       setCurrentUser(user);
 setIsRestoringSession(false);
+      
+await backendService._loadData();
     } catch (error) {
       // Session sudah expired / tidak valid
       localStorage.removeItem('content_os_user');
