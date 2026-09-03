@@ -2218,7 +2218,7 @@ for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filtered.map((item) => (
                   <tr
-                    key={item.content_id}
+                    key={item.row_number}
                     onClick={() => onSelectContent(item)}
                     className="hover:bg-indigo-50/40 cursor-pointer transition"
                   >
