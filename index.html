@@ -854,6 +854,7 @@ async deleteContent(currentUser, rowNumber) {
 
     function App() {
       const [currentUser, setCurrentUser] = useState(null);
+      const [bulkDeleteMode, setBulkDeleteMode] = useState(false);
       const [isRestoringSession, setIsRestoringSession] = useState(true);
 useEffect(() => {
   const savedUser = localStorage.getItem('content_os_user');
@@ -1502,6 +1503,7 @@ if (!currentUser) {
   contentList={isDirector ? contentList : contentList.filter(c => c.creator_id === currentUser.user_id)}
   isDirector={isDirector}
   currentUser={currentUser}
+  bulkDeleteMode={bulkDeleteMode}
   refreshData={refreshData}
   showToast={showToast}
   onSelectContent={(item) => { setSelectedContent(item); setIsContentModalOpen(true); }}
@@ -1570,6 +1572,10 @@ if (!currentUser) {
               currentUser={currentUser}
               users={users}
               onClose={() => setIsContentModalOpen(false)}
+              onBulkDeleteMode={() => {
+  setIsContentModalOpen(false);
+  setBulkDeleteMode(true);
+}}
              onSave={async (updated) => {
   try {
     await backendService.saveContent(currentUser, updated);
@@ -2146,7 +2152,8 @@ function ClayContentTable({
   currentUser,
   refreshData,
   showToast,
-  onSelectContent
+  onSelectContent,
+  bulkDeleteMode
 }) {
       const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
@@ -2219,13 +2226,18 @@ for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
                 {filtered.map((item) => (
                   <tr
                     key={item.row_number}
-                    onClick={() => onSelectContent(item)}
+                    onClick={() => {
+  if (!bulkDeleteMode) {
+    onSelectContent(item);
+  }
+}}
                     className="hover:bg-indigo-50/40 cursor-pointer transition"
                   >
 <td className="py-3 px-3">
   <div className="flex items-center gap-3">
-    <input
-      type="checkbox"
+{bulkDeleteMode && (
+  <input
+    type="checkbox"
       checked={selectedIds.includes(item.row_number)}
       onChange={(e) => {
         setSelectedIds(prev =>
@@ -2236,7 +2248,8 @@ for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
       }}
       onClick={(e) => e.stopPropagation()}
       className="w-5 h-5 rounded-lg clay-inset cursor-pointer accent-indigo-600"
-    />
+      />
+)}
 
     <div>
       <div className="font-bold text-slate-900">{item.content_title}</div>
@@ -2402,7 +2415,15 @@ for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
       );
     }
 
-    function ClayContentModal({ content, currentUser, users, onClose, onSave, onDelete }) {
+    function ClayContentModal({
+  content,
+  currentUser,
+  users,
+  onClose,
+  onSave,
+  onDelete,
+  onBulkDeleteMode
+}) {
       const [formData, setFormData] = useState({
   ...content,
   content_id: content.content_id || content.contentId || ''
@@ -2461,7 +2482,7 @@ for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
             </div>
 
 <div className="flex justify-between pt-3 border-t border-slate-200">
-  {(
+  <div className="flex space-x-2">
     <button
       onClick={() => {
         if (window.confirm('Hapus content ini?')) {
@@ -2472,6 +2493,14 @@ for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
     >
       Hapus
     </button>
+
+    <button
+      onClick={onBulkDeleteMode}
+      className="clay-btn bg-amber-100 px-4 py-2 text-xs font-bold text-amber-700"
+    >
+      Hapus beberapa
+    </button>
+  </div>
   )}
 
   <div className="flex space-x-2 ml-auto">
