@@ -14,55 +14,34 @@ export default async function handler(req, res) {
         ? req.body
         : JSON.stringify(req.body || {});
 
-    let response = await fetch(GAS_URL, {
+    const response = await fetch(GAS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8'
       },
       body,
-      redirect: 'manual'
+      redirect: 'follow'
     });
-
-    console.log('FIRST STATUS:', response.status);
-    console.log('FIRST LOCATION:', response.headers.get('location'));
-
-    // Google Apps Script biasanya melakukan redirect.
-    // Ikuti redirect secara manual agar POST tetap dipertahankan.
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('location');
-
-      if (!location) {
-        return res.status(502).json({
-          status: 'error',
-          message: 'Google Apps Script melakukan redirect tanpa Location'
-        });
-      }
-
-response = await fetch(location, {
-  method: 'GET',
-  redirect: 'follow'
-});
-
-      console.log('REDIRECT STATUS:', response.status);
-      console.log('REDIRECT URL:', response.url);
-    }
 
     const text = await response.text();
 
-    console.log('FINAL STATUS:', response.status);
-    console.log('FINAL RESPONSE:', text.substring(0, 2000));
+    if (!response.ok) {
+      console.error('GAS ERROR:', response.status, text.substring(0, 1000));
+      return res.status(502).json({
+        status: 'error',
+        message: `Google Apps Script error ${response.status}`
+      });
+    }
 
     let data;
 
     try {
       data = JSON.parse(text);
     } catch (error) {
+      console.error('GAS NON-JSON RESPONSE:', text.substring(0, 1000));
       return res.status(502).json({
         status: 'error',
-        message: 'Google Apps Script masih mengembalikan HTML, bukan JSON',
-        gasStatus: response.status,
-        gasUrl: response.url,
-        gasResponse: text.substring(0, 1000)
+        message: 'Google Apps Script masih mengembalikan HTML, bukan JSON'
       });
     }
 
