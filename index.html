@@ -1575,10 +1575,10 @@ if (!currentUser) {
 }}
              onSave={async (updated) => {
   try {
-    await backendService.saveContent(currentUser, updated);
-    await refreshData();
-    setIsContentModalOpen(false);
-    showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
+await backendService.saveContent(currentUser, updated);
+setIsContentModalOpen(false);
+showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
+refreshData();
   } catch (err) {
     showToast(err.message, 'error');
   }
