@@ -1573,15 +1573,19 @@ if (!currentUser) {
   setIsContentModalOpen(false);
   setBulkDeleteMode(true);
 }}
-             onSave={async (updated) => {
-  try {
-await backendService.saveContent(currentUser, updated);
-setIsContentModalOpen(false);
-showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
-refreshData();
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
+onSave={(updated) => {
+  setIsContentModalOpen(false);
+  showToast('Konten sedang disimpan...', 'info');
+
+  backendService.saveContent(currentUser, updated)
+    .then(() => {
+      refreshData();
+      showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
+    })
+    .catch((err) => {
+      showToast(err.message, 'error');
+      refreshData();
+    });
 }}
               onDelete={async (rowNumber) => {
   try {
