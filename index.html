@@ -1577,25 +1577,45 @@ onSave={(updated) => {
   setIsContentModalOpen(false);
   showToast('Konten sedang disimpan...', 'info');
 
+  const contentId =
+    updated.content_id ||
+    updated.contentId ||
+    `temp-${Date.now()}`;
+
+  const optimisticContent = {
+    ...updated,
+    content_id: contentId
+  };
+
+  setContentList(prev => {
+    const existingIndex = prev.findIndex(
+      item =>
+        item.content_id === updated.content_id ||
+        item.content_id === updated.contentId
+    );
+
+    if (existingIndex >= 0) {
+      const next = [...prev];
+      next[existingIndex] = optimisticContent;
+      return next;
+    }
+
+    return [optimisticContent, ...prev];
+  });
+
   backendService.saveContent(currentUser, updated)
     .then(() => {
-      refreshData();
       showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
+
+      // Sync dengan backend setelah UI sudah terasa instan
+      setTimeout(() => {
+        refreshData();
+      }, 1500);
     })
     .catch((err) => {
       showToast(err.message, 'error');
       refreshData();
     });
-}}
-              onDelete={async (rowNumber) => {
-  try {
-    await backendService.deleteContent(currentUser, rowNumber);
-    await refreshData();
-    setIsContentModalOpen(false);
-    showToast('Content berhasil dihapus!', 'success');
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
 }}
             />
           )}
