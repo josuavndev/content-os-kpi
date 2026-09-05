@@ -1,8 +1,6 @@
 const SOURCE_URL = 'https://raw.githubusercontent.com/josuavndev/content-os-kpi/main/index.html';
 
-export const config = {
-  matcher: ['/', '/index.html']
-};
+export const config = { matcher: ['/', '/index.html'] };
 
 export default async function middleware() {
   try {
@@ -46,7 +44,6 @@ export default async function middleware() {
       `<span className="flex flex-col min-w-0 h-full">\n                        <span className={INDONESIA_PUBLIC_HOLIDAYS[cell.dateStr] ? 'text-rose-600 font-black' : ''}>{cell.day}</span>\n                        {INDONESIA_PUBLIC_HOLIDAYS[cell.dateStr] && (\n                          <span className="mt-1.5 relative overflow-hidden rounded-lg border border-rose-100 bg-gradient-to-r from-rose-50 via-white to-rose-50 px-2 py-1.5 text-rose-700 shadow-sm" title={INDONESIA_PUBLIC_HOLIDAYS[cell.dateStr]}>\n                            <span className="absolute -right-3 -top-3 h-8 w-8 rounded-full bg-rose-100/70"></span>\n                            <span className="relative flex items-center gap-1.5 min-w-0">\n                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white border border-rose-100 text-[10px] shadow-sm">🇮🇩</span>\n                              <span className="min-w-0">\n                                <span className="block text-[7px] font-black uppercase tracking-[0.12em] text-rose-400">Libur Nasional</span>\n                                <span className="block text-[8px] leading-tight font-extrabold truncate">{INDONESIA_PUBLIC_HOLIDAYS[cell.dateStr]}</span>\n                              </span>\n                            </span>\n                          </span>\n                        )}\n                      </span>`
     );
 
-    // Calendar event pills can be dragged onto another date.
     html = html.replace(
       'onClick={() => onCreateNew(cell.dateStr)}',
       "onClick={() => onCreateNew(cell.dateStr)}\n                  onDragOver={(e) => e.preventDefault()}\n                  onDrop={(e) => { e.preventDefault(); const rowNumber = e.dataTransfer.getData('content-row'); const item = contentList.find(c => String(c.row_number || c.rowNumber || '') === String(rowNumber)); if (item && onMoveContent) onMoveContent(item, cell.dateStr); }}"
@@ -75,17 +72,17 @@ export default async function middleware() {
       "const [contentList, setContentList] = useState(() => { try { return JSON.parse(localStorage.getItem('content_os_content_cache') || '[]'); } catch (_) { return []; } });"
     );
 
-    // IMPORTANT: contentList must contain ALL months. The calendar itself filters
-    // by filterMonth. Filtering the data fetch here causes cross-month edits to
-    // appear as duplicates in the old month and makes the new month disappear.
+    // Keep the complete dataset in React state. The calendar filters it by month;
+    // refreshData must never discard records from another month.
     html = html.replace(
       `const items = await backendService.getSharedCalendar(\n      currentUser,\n      { month: filterMonth }\n    );\n\n    setContentList(items);`,
       `const allData = await backendService._loadData();\n    const items = allData.content || [];\n\n    setContentList(items);`
     );
 
+    // Only patch the session-restore load, not the refreshData load above.
     html = html.replace(
-      'await backendService._loadData();',
-      `const initialData = await backendService._loadData();\n      setContentList(initialData.content || []);\n      try { localStorage.setItem('content_os_content_cache', JSON.stringify(initialData.content || [])); } catch (_) {}\n      setUsers([...backendService.users]);\n      setConfig({ ...backendService.config });\n      if (backendService.lastSynced) setLastSyncTime(backendService.lastSynced.toLocaleTimeString());`
+      `setIsRestoringSession(false);\n      \nawait backendService._loadData();`,
+      `setIsRestoringSession(false);\n      \nconst initialData = await backendService._loadData();\n      setContentList(initialData.content || []);\n      try { localStorage.setItem('content_os_content_cache', JSON.stringify(initialData.content || [])); } catch (_) {}\n      setUsers([...backendService.users]);\n      setConfig({ ...backendService.config });\n      if (backendService.lastSynced) setLastSyncTime(backendService.lastSynced.toLocaleTimeString());`
     );
 
     html = html.replace(
@@ -93,18 +90,13 @@ export default async function middleware() {
       "content_id: content.content_id || content.contentId || '',\n  row_number: content.row_number || content.rowNumber || ''"
     );
 
-    html = html.replace(
-      'onDelete(formData.content_id);',
-      'onDelete(formData);'
-    );
+    html = html.replace('onDelete(formData.content_id);', 'onDelete(formData);');
 
     html = html.replace(
       `onBulkDeleteMode={() => {\n  setIsContentModalOpen(false);\n  setBulkDeleteMode(true);\n}}\nonSave={(updated) => {`,
       `onBulkDeleteMode={() => {\n  setIsContentModalOpen(false);\n  setBulkDeleteMode(true);\n}}\nonDelete={async (contentToDelete) => {\n  const rowNumber = contentToDelete?.row_number || contentToDelete?.rowNumber;\n  if (!rowNumber) {\n    showToast('Row Google Sheets tidak ditemukan untuk content ini.', 'error');\n    return;\n  }\n  showToast('Content sedang dihapus...', 'info');\n  try {\n    await backendService.deleteContent(currentUser, rowNumber);\n    setIsContentModalOpen(false);\n    setSelectedContent(null);\n    showToast('Content berhasil dihapus!', 'success');\n    await refreshData();\n  } catch (err) {\n    showToast(err.message || 'Gagal menghapus content', 'error');\n  }\n}}\nonSave={(updated) => {`
     );
 
-    // Preserve the original sheet row and compare against its persisted date BEFORE saving.
-    // This converts the append-style Apps Script save into a true MOVE for date edits.
     html = html.replace(
       `async saveContent(currentUser, contentData) {\n  \n  this._authorize(currentUser);\n\n  const data = await this._post({\n    action: 'saveContent',\n    content: contentData\n  });`,
       `async saveContent(currentUser, contentData) {\n  \n  this._authorize(currentUser);\n\n  const originalRowNumber = contentData?.row_number || contentData?.rowNumber || '';\n  const originalContentId = contentData?.content_id || contentData?.contentId || '';\n  const originalTitle = String(contentData?.content_title || '').trim();\n  const originalCreatorId = contentData?.creator_id || '';\n  let beforeRows = [];\n\n  if (originalRowNumber) {\n    try {\n      const before = await this._post({ action: 'getData' });\n      beforeRows = Array.isArray(before?.data?.content) ? before.data.content : [];\n    } catch (_) {}\n  }\n\n  const originalRow = beforeRows.find(item => String(item?.row_number || item?.rowNumber || '') === String(originalRowNumber));\n  const originalDate = String(originalRow?.publish_date || '');\n\n  const data = await this._post({\n    action: 'saveContent',\n    content: contentData\n  });`
