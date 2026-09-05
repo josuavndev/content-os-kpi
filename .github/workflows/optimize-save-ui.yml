@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Patch optimistic bulk delete
+      - name: Patch bulk delete refresh
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -24,41 +24,16 @@ jobs:
           path = Path('index.html')
           text = path.read_text(encoding='utf-8')
 
-          state_old = "  const [selectedIds, setSelectedIds] = useState([]);\n"
-          state_new = state_old + "  const [hiddenIds, setHiddenIds] = useState([]);\n"
-          if state_new not in text:
-              if state_old not in text:
-                  raise SystemExit('selectedIds state not found')
-              text = text.replace(state_old, state_new, 1)
+          old = """          setHiddenIds([]);\n          await refreshData();\n          showToast('Content terpilih berhasil dihapus!', 'success');\n        } catch (err) {\n          setHiddenIds([]);\n          await refreshData();\n          showToast(err.message, 'error');\n        }"""
 
-          filtered_old = "      const filtered = contentList.filter(c => !search || c.content_title.toLowerCase().includes(search.toLowerCase()) || c.creator_name.toLowerCase().includes(search.toLowerCase()));"
-          filtered_new = "      const filtered = contentList.filter(c => !hiddenIds.includes(c.row_number) && (!search || c.content_title.toLowerCase().includes(search.toLowerCase()) || c.creator_name.toLowerCase().includes(search.toLowerCase())));"
-          if filtered_new not in text:
-              if filtered_old not in text:
-                  raise SystemExit('table filtered expression not found')
-              text = text.replace(filtered_old, filtered_new, 1)
+          new = """          showToast('Content terpilih berhasil dihapus!', 'success');\n          refreshData().finally(() => setHiddenIds([]));\n        } catch (err) {\n          setHiddenIds([]);\n          await refreshData();\n          showToast(err.message, 'error');\n        }"""
 
-          confirm_old = "        if (!window.confirm(`Hapus ${selectedIds.length} content yang dipilih?`)) return;\n\n        try {"
-          confirm_new = "        if (!window.confirm(`Hapus ${selectedIds.length} content yang dipilih?`)) return;\n\n        const idsToDelete = [...selectedIds];\n        setHiddenIds(idsToDelete);\n        setSelectedIds([]);\n        onExitBulkDeleteMode();\n        showToast('Content sedang dihapus...', 'info');\n\n        try {"
-          if confirm_new not in text:
-              if confirm_old not in text:
-                  raise SystemExit('bulk delete handler not found')
-              text = text.replace(confirm_old, confirm_new, 1)
+          if new in text:
+              raise SystemExit(0)
+          if old not in text:
+              raise SystemExit('bulk delete refresh block not found')
 
-          success_old = "          setSelectedIds([]);\n          onExitBulkDeleteMode();\n          await refreshData();\n          showToast('Content terpilih berhasil dihapus!', 'success');"
-          success_new = "          setHiddenIds([]);\n          await refreshData();\n          showToast('Content terpilih berhasil dihapus!', 'success');"
-          if success_new not in text:
-              if success_old not in text:
-                  raise SystemExit('bulk delete success block not found')
-              text = text.replace(success_old, success_new, 1)
-
-          catch_old = "        } catch (err) {\n          showToast(err.message, 'error');\n        }"
-          catch_new = "        } catch (err) {\n          setHiddenIds([]);\n          await refreshData();\n          showToast(err.message, 'error');\n        }"
-          if catch_new not in text:
-              if catch_old not in text:
-                  raise SystemExit('bulk delete catch block not found')
-              text = text.replace(catch_old, catch_new, 1)
-
+          text = text.replace(old, new, 1)
           path.write_text(text, encoding='utf-8')
           PY
 
@@ -68,5 +43,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git diff --cached --quiet && exit 0
-          git commit -m "perf: make bulk delete feel instant"
+          git commit -m "perf: avoid blocking bulk delete on refresh"
           git push
