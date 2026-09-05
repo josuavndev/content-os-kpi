@@ -2251,7 +2251,7 @@ for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filtered.map((item) => (
                   <tr
-                    key={item.row_number}
+                    key={item.content_id || item.contentId || item.row_number}
                     onClick={() => {
   if (!bulkDeleteMode) {
     onSelectContent(item);
