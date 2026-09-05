@@ -3,7 +3,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbzH4JF301T4z4uZjWNk7PM1
 const dataCache = new Map();
 const dataInFlight = new Map();
 const mutationVersion = new Map();
-const DATA_CACHE_MS = 1500;
+const DATA_CACHE_MS = 1000;
 
 function normalizeDateKey(value) {
   if (!value) return '';
@@ -24,11 +24,13 @@ function normalizeDateKey(value) {
 }
 
 function normalizeDataset(data) {
-  if (!data || !data.data || !Array.isArray(data.data.content)) return data;
-  data.data.content = data.data.content.map(item => {
-    const publishValue = item.publish_date ?? item.publishDate ?? item.tanggal_publish ?? item.actual_publish_date ?? item.actualPublishDate;
-    return { ...item, publish_date: normalizeDateKey(publishValue) };
-  });
+  if (!data?.data || !Array.isArray(data.data.content)) return data;
+  data.data.content = data.data.content.map(item => ({
+    ...item,
+    publish_date: normalizeDateKey(
+      item.publish_date ?? item.publishDate ?? item.tanggal_publish ?? item.actual_publish_date ?? item.actualPublishDate
+    )
+  }));
   return data;
 }
 
@@ -55,49 +57,66 @@ function getContentId(item) {
   return item?.content_id ?? item?.contentId ?? '';
 }
 
-function sameId(a, b) {
-  const x = getContentId(a);
-  const y = getContentId(b);
-  return x && y && String(x) === String(y);
+function findOriginal(rows, savedContent) {
+  const rowNumber = savedContent?.row_number || savedContent?.rowNumber || '';
+  const contentId = getContentId(savedContent);
+  return rows.find(item =>
+    (rowNumber && String(getRowNumber(item)) === String(rowNumber)) ||
+    (contentId && String(getContentId(item)) === String(contentId))
+  );
 }
 
-function sameRow(a, b) {
-  const x = getRowNumber(a);
-  const y = getRowNumber(b);
-  return x && y && String(x) === String(y);
-}
+function sameSavedShape(item, content) {
+  const id = getContentId(content);
+  if (id && String(getContentId(item)) === String(id)) return true;
 
-function matchesSavedContent(item, content) {
-  const idMatch = content?.content_id && String(getContentId(item)) === String(content.content_id);
-  const titleMatch = String(item?.content_title || '').trim() === String(content?.content_title || '').trim();
-  const creatorMatch = !content?.creator_id || String(item?.creator_id || '') === String(content.creator_id);
-  const dateMatch = normalizeDateKey(item?.publish_date) === normalizeDateKey(content?.publish_date);
-  return (idMatch || titleMatch) && creatorMatch && dateMatch;
+  const title = String(item?.content_title || '').trim();
+  const targetTitle = String(content?.content_title || '').trim();
+  const creator = String(item?.creator_id || '').trim();
+  const targetCreator = String(content?.creator_id || '').trim();
+  const date = normalizeDateKey(item?.publish_date);
+  const targetDate = normalizeDateKey(content?.publish_date);
+  const type = String(item?.content_type || '').trim();
+  const targetType = String(content?.content_type || '').trim();
+  const platform = String(item?.platform || '').trim();
+  const targetPlatform = String(content?.platform || '').trim();
+
+  return Boolean(
+    title && targetTitle && title === targetTitle &&
+    (!targetCreator || creator === targetCreator) &&
+    date && targetDate && date === targetDate &&
+    (!targetType || type === targetType) &&
+    (!targetPlatform || platform === targetPlatform)
+  );
 }
 
 async function reconcileContentEdit(token, beforeData, savedContent) {
   const beforeRows = Array.isArray(beforeData?.data?.content) ? beforeData.data.content : [];
-  const original = beforeRows.find(item =>
-    sameId(item, savedContent) ||
-    (savedContent?.row_number && String(getRowNumber(item)) === String(savedContent.row_number))
-  );
-
+  const original = findOriginal(beforeRows, savedContent);
   if (!original) return;
+
   const originalRow = getRowNumber(original);
   if (!originalRow) return;
+  const originalId = getContentId(original);
 
   const fresh = await fetchGas(JSON.stringify({ action: 'getData', token }));
   const rows = Array.isArray(fresh?.data?.content) ? fresh.data.content : [];
   const stillOld = rows.find(item => String(getRowNumber(item)) === String(originalRow));
-  if (!stillOld) return;
+  if (!stillOld) return; // Apps Script performed a true in-place update.
 
   const newRow = rows.find(item => {
-    if (String(getRowNumber(item)) === String(originalRow)) return false;
-    return matchesSavedContent(item, savedContent);
+    const row = String(getRowNumber(item));
+    if (!row || row === String(originalRow)) return false;
+    if (originalId && String(getContentId(item)) === String(originalId)) return true;
+    return sameSavedShape(item, savedContent);
   });
 
-  if (newRow && normalizeDateKey(stillOld.publish_date) !== normalizeDateKey(savedContent.publish_date)) {
+  // Apps Script appears to append a replacement instead of updating the original row.
+  // Delete only when a high-confidence replacement exists, so unrelated rows are safe.
+  if (newRow) {
     await fetchGas(JSON.stringify({ action: 'deleteContent', token, row_number: originalRow }));
+  } else {
+    console.warn('Could not reconcile edited content row', { originalRow });
   }
 }
 
@@ -118,23 +137,20 @@ export default async function handler(req, res) {
     const token = payload.token || '';
     const isGetData = payload.action === 'getData' && token;
 
-    if (!isGetData && token) {
-      markMutation(token);
-    }
-
     if (isGetData) {
       const cached = dataCache.get(token);
       if (cached && Date.now() - cached.timestamp < DATA_CACHE_MS) return res.status(200).json(cached.data);
 
       const existing = dataInFlight.get(token);
-      if (existing) return res.status(200).json(await existing);
+      if (existing) {
+        try { return res.status(200).json(await existing); }
+        catch (error) { return res.status(502).json({ status: 'error', message: error.message || 'Google Apps Script error' }); }
+      }
 
       const versionAtStart = mutationVersion.get(token) || 0;
       const request = fetchGas(body)
         .then(data => {
-          if ((mutationVersion.get(token) || 0) === versionAtStart) {
-            dataCache.set(token, { data, timestamp: Date.now() });
-          }
+          if ((mutationVersion.get(token) || 0) === versionAtStart) dataCache.set(token, { data, timestamp: Date.now() });
           return data;
         })
         .finally(() => dataInFlight.delete(token));
@@ -143,27 +159,33 @@ export default async function handler(req, res) {
       catch (error) { return res.status(502).json({ status: 'error', message: error.message || 'Google Apps Script error' }); }
     }
 
-    if (payload.action === 'saveContent' && token && payload.content) {
+    if (!token) return res.status(401).json({ status: 'error', message: '401 Unauthorized: Token tidak ditemukan' });
+
+    if (payload.action === 'saveContent' && payload.content) {
       let beforeData = null;
       try { beforeData = await fetchGas(JSON.stringify({ action: 'getData', token })); } catch (_) {}
 
-      const saved = await fetchGas(body);
+      const content = payload.content;
+      const savePayload = {
+        action: 'saveContent',
+        token,
+        content,
+        row_number: content.row_number || content.rowNumber || payload.row_number || payload.rowNumber || '',
+        content_id: content.content_id || content.contentId || payload.content_id || payload.contentId || ''
+      };
 
-      try {
-        await reconcileContentEdit(token, beforeData, payload.content);
-      } catch (reconcileError) {
-        console.warn('Content edit reconciliation failed:', reconcileError);
-      }
+      const saved = await fetchGas(JSON.stringify(savePayload));
+
+      try { await reconcileContentEdit(token, beforeData, content); }
+      catch (reconcileError) { console.warn('Content edit reconciliation failed:', reconcileError); }
 
       markMutation(token);
       return res.status(200).json(saved);
     }
 
-    if (payload.action === 'deleteContent' && token) {
+    if (payload.action === 'deleteContent') {
       let rowNumber = payload.row_number || payload.rowNumber || '';
 
-      // If the UI could not carry the sheet row number, resolve it safely from the
-      // current dataset using content_id before asking Apps Script to delete.
       if (!rowNumber) {
         try {
           const current = await fetchGas(JSON.stringify({ action: 'getData', token }));
@@ -180,17 +202,20 @@ export default async function handler(req, res) {
         } catch (_) {}
       }
 
-      if (!rowNumber) {
-        return res.status(400).json({ status: 'error', message: 'Baris Google Sheets untuk content ini tidak ditemukan.' });
-      }
+      if (!rowNumber) return res.status(400).json({ status: 'error', message: 'Baris Google Sheets untuk content ini tidak ditemukan.' });
 
-      const deleteBody = JSON.stringify({ action: 'deleteContent', token, row_number: rowNumber });
-      const deleted = await fetchGas(deleteBody);
+      const deleted = await fetchGas(JSON.stringify({
+        action: 'deleteContent', token, row_number: rowNumber,
+        content_id: payload.content_id || payload.contentId || '',
+        content_title: payload.content_title || '', publish_date: payload.publish_date || ''
+      }));
       markMutation(token);
       return res.status(200).json(deleted);
     }
 
-    return res.status(200).json(await fetchGas(body));
+    const result = await fetchGas(body);
+    markMutation(token);
+    return res.status(200).json(result);
   } catch (error) {
     console.error('PROXY ERROR:', error);
     return res.status(500).json({ status: 'error', message: error.message || 'Proxy error' });
