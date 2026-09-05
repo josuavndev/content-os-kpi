@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Patch save handler
+      - name: Patch optimistic table key
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -24,16 +24,15 @@ jobs:
           path = Path('index.html')
           text = path.read_text(encoding='utf-8')
 
-          marker = "  // Paksa React commit perubahan optimistis ke DOM sebelum request backend."
-          if marker not in text:
-              raise SystemExit('Duplicate optimistic save block not found')
+          old = '                    key={item.row_number}'
+          new = '                    key={item.content_id || item.contentId || item.row_number}'
 
-          start = text.find("  setContentList(prev => {", text.find("const optimisticContent = {"))
-          end = text.find(marker, start)
-          if start == -1 or end == -1:
-              raise SystemExit('Could not locate first optimistic setContentList block')
+          if new in text:
+              raise SystemExit(0)
+          if old not in text:
+              raise SystemExit('Table row key not found')
 
-          text = text[:start] + text[end:]
+          text = text.replace(old, new, 1)
           path.write_text(text, encoding='utf-8')
           PY
 
@@ -43,5 +42,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git diff --cached --quiet && exit 0
-          git commit -m "fix: remove duplicate optimistic save render"
+          git commit -m "perf: stabilize optimistic table row key"
           git push
