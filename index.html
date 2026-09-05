@@ -2230,9 +2230,8 @@ for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
   );
 }
 
-          setHiddenIds([]);
-          await refreshData();
           showToast('Content terpilih berhasil dihapus!', 'success');
+          refreshData().finally(() => setHiddenIds([]));
         } catch (err) {
           setHiddenIds([]);
           await refreshData();
