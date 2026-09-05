@@ -131,8 +131,8 @@ export default async function handler(req, res) {
     if (start < 0 || end < 0) return res.status(500).send('Calendar source anchors not found');
     html = html.slice(0, start) + CALENDAR_COMPONENT + html.slice(end);
 
-    const invocationPattern = /(<ClayContentCalendar\\s+contentList=\\{contentList\\})/;
-    if (invocationPattern.test(html) && !/filterMonth=\\{filterMonth\\}/.test(html)) {
+    const invocationPattern = /(<ClayContentCalendar\s+contentList=\{contentList\})/;
+    if (invocationPattern.test(html) && !/filterMonth=\{filterMonth\}/.test(html)) {
       html = html.replace(invocationPattern, '$1\n                  filterMonth={filterMonth}');
     }
 
