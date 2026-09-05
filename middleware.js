@@ -41,9 +41,11 @@ export default async function middleware() {
       `const INDONESIA_PUBLIC_HOLIDAYS = ${JSON.stringify(holidayMap)};\n      const cells = [];`
     );
 
+    // Calendar must use the exact same publish_date as All Content.
+    // Do not remap test content or any other row to another date in the UI.
     html = html.replace(
       'items: filtered.filter(c => c.publish_date === dStr)',
-      "items: filtered.filter(c => (c.content_title === 'TEST KONTEN PUBLIC HOLIDAY' && c.publish_date === '2026-08-16') ? dStr === '2026-08-17' : c.publish_date === dStr)"
+      'items: filtered.filter(c => c.publish_date === dStr)'
     );
 
     html = html.replace(
