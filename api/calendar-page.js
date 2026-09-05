@@ -37,7 +37,6 @@ const CALENDAR_COMPONENT = String.raw`    function ClayContentCalendar({ content
 
       const [year, month] = (filterMonth || '2026-09').split('-').map(Number);
       const daysInMonth = new Date(year, month, 0).getDate();
-      // JS getDay(): Sunday=0 ... Thursday=4, so October 1, 2026 correctly starts in Kamis.
       const startOffset = new Date(year, month - 1, 1).getDay();
       const holidays = {
         '2026-01-01': 'Tahun Baru Masehi',
@@ -132,9 +131,10 @@ export default async function handler(req, res) {
     if (start < 0 || end < 0) return res.status(500).send('Calendar source anchors not found');
     html = html.slice(0, start) + CALENDAR_COMPONENT + html.slice(end);
 
-    const oldInvocation = `                <ClayContentCalendar\n                  contentList={contentList}\n                  onSelectContent={(item) => { setSelectedContent(item); setIsContentModalOpen(true); }}`;
-    const newInvocation = `                <ClayContentCalendar\n                  contentList={contentList}\n                  filterMonth={filterMonth}\n                  onSelectContent={(item) => { setSelectedContent(item); setIsContentModalOpen(true); }}`;
-    if (html.includes(oldInvocation)) html = html.replace(oldInvocation, newInvocation);
+    const invocationPattern = /(<ClayContentCalendar\\s+contentList=\\{contentList\\})/;
+    if (invocationPattern.test(html) && !/filterMonth=\\{filterMonth\\}/.test(html)) {
+      html = html.replace(invocationPattern, '$1\n                  filterMonth={filterMonth}');
+    }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store, max-age=0');
