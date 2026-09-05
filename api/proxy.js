@@ -9,6 +9,8 @@ const DATA_CACHE_MS = 1500;
 function normalizeDateKey(value) {
   if (!value) return '';
   const raw = String(value).trim();
+  if (!raw) return '';
+
   const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
   if (iso) return iso[1];
 
@@ -23,16 +25,25 @@ function normalizeDateKey(value) {
     return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}-${String(parsed.getUTCDate()).padStart(2, '0')}`;
   }
 
-  return raw;
+  return '';
 }
 
 function normalizeDataset(data) {
   if (!data || !data.data || !Array.isArray(data.data.content)) return data;
 
-  data.data.content = data.data.content.map(item => ({
-    ...item,
-    publish_date: normalizeDateKey(item.publish_date)
-  }));
+  data.data.content = data.data.content.map(item => {
+    const publishValue =
+      item.publish_date ??
+      item.publishDate ??
+      item.tanggal_publish ??
+      item.actual_publish_date ??
+      item.actualPublishDate;
+
+    return {
+      ...item,
+      publish_date: normalizeDateKey(publishValue)
+    };
+  });
 
   return data;
 }
