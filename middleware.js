@@ -65,8 +65,6 @@ export default async function middleware() {
       "onChange={(e) => { const value = e.target.value; localStorage.setItem('content_os_filter_month', value); setFilterMonth(value); }}"
     );
 
-    // Cache the last good dataset in the browser. On a hard refresh the calendar can
-    // paint immediately, while the normal sync refreshes it in the background.
     html = html.replace(
       'const [contentList, setContentList] = useState([]);',
       "const [contentList, setContentList] = useState(() => { try { return JSON.parse(localStorage.getItem('content_os_content_cache') || '[]'); } catch (_) { return []; } });"
@@ -77,7 +75,6 @@ export default async function middleware() {
       "setContentList(items);\n    try { localStorage.setItem('content_os_content_cache', JSON.stringify(items)); } catch (_) {}\n    setUsers([...backendService.users]);"
     );
 
-    // Restore session using the same loaded dataset instead of waiting for a second request.
     html = html.replace(
       'await backendService._loadData();',
       `const initialData = await backendService._loadData();\n      setContentList(initialData.content || []);\n      try { localStorage.setItem('content_os_content_cache', JSON.stringify(initialData.content || [])); } catch (_) {}\n      setUsers([...backendService.users]);\n      setConfig({ ...backendService.config });\n      if (backendService.lastSynced) setLastSyncTime(backendService.lastSynced.toLocaleTimeString());`,
@@ -89,8 +86,13 @@ export default async function middleware() {
     );
 
     html = html.replace(
-      `const data = await this._post({\n    action: 'saveContent',\n    content: contentData\n  });`,
-      `const data = await this._post({\n    action: 'saveContent',\n    content: contentData,\n    row_number: contentData.row_number || contentData.rowNumber || '',\n    content_id: contentData.content_id || contentData.contentId || ''\n  });`
+      'onDelete(formData.content_id);',
+      'onDelete(formData);'
+    );
+
+    html = html.replace(
+      `onBulkDeleteMode={() => {\n  setIsContentModalOpen(false);\n  setBulkDeleteMode(true);\n}}\nonSave={(updated) => {`,
+      `onBulkDeleteMode={() => {\n  setIsContentModalOpen(false);\n  setBulkDeleteMode(true);\n}}\nonDelete={async (contentToDelete) => {\n  const rowNumber = contentToDelete?.row_number || contentToDelete?.rowNumber;\n  if (!rowNumber) {\n    showToast('Row Google Sheets tidak ditemukan untuk content ini.', 'error');\n    return;\n  }\n\n  showToast('Content sedang dihapus...', 'info');\n  try {\n    await backendService.deleteContent(currentUser, rowNumber);\n    setIsContentModalOpen(false);\n    setSelectedContent(null);\n    showToast('Content berhasil dihapus!', 'success');\n    await refreshData();\n  } catch (err) {\n    showToast(err.message || 'Gagal menghapus content', 'error');\n  }\n}}\nonSave={(updated) => {`
     );
 
     html = html.replace(
@@ -99,8 +101,13 @@ export default async function middleware() {
     );
 
     html = html.replace(
+      `const contentId =\n    updated.content_id ||\n    updated.contentId ||\n    \`temp-\${Date.now()}\`;`,
+      `const originalRowNumber = updated.row_number || updated.rowNumber || '';\n  const originalContentId = updated.content_id || updated.contentId || '';\n  const originalTitle = String(updated.content_title || '').trim();\n  const originalCreatorId = updated.creator_id || '';\n\n  const contentId =\n    originalContentId ||\n    (originalRowNumber ? \`row-\${originalRowNumber}\` : \`temp-\${Date.now()}\`);`
+    );
+
+    html = html.replace(
       `backendService.saveContent(currentUser, updated)\n      .then(() => {\n        showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');\n        refreshData();\n      })`,
-      `backendService.saveContent(currentUser, updated)\n      .then(() => {\n        showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');\n        refreshData();\n      })`
+      `backendService.saveContent(currentUser, updated)\n      .then(async () => {\n        if (originalRowNumber) {\n          try {\n            const persisted = await backendService._loadData();\n            const rows = Array.isArray(persisted.content) ? persisted.content : [];\n            const oldRow = rows.find(item => String(item.row_number || item.rowNumber || '') === String(originalRowNumber));\n            const newRow = rows.find(item => {\n              if (String(item.row_number || item.rowNumber || '') === String(originalRowNumber)) return false;\n              const idMatch = originalContentId && String(item.content_id || item.contentId || '') === String(originalContentId);\n              const titleMatch = originalTitle && String(item.content_title || '').trim() === originalTitle;\n              const creatorMatch = !originalCreatorId || String(item.creator_id || '') === String(originalCreatorId);\n              const dateMatch = String(item.publish_date || '') === String(updated.publish_date || '');\n              return (idMatch || titleMatch) && creatorMatch && dateMatch;\n            });\n            if (oldRow && newRow && String(oldRow.publish_date || '') !== String(newRow.publish_date || '')) {\n              await backendService.deleteContent(currentUser, originalRowNumber);\n            }\n          } catch (reconcileError) {\n            console.warn('Content update reconciliation skipped:', reconcileError);\n          }\n        }\n        showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');\n        refreshData();\n      })`
     );
 
     return new Response(html, {
