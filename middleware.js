@@ -57,7 +57,7 @@ export default async function middleware() {
     );
 
     html = html.replace(
-      /(<ClayContentCalendar\s+contentList=\{contentList\})/, 
+      /(<ClayContentCalendar\s+contentList=\{contentList\})/,
       `$1\n                  filterMonth={filterMonth}\n                  onMoveContent={async (item, newDate) => {\n                    if (!item || !newDate || String(item.publish_date || '') === String(newDate)) return;\n                    const updated = { ...item, publish_date: newDate };\n                    const key = item.row_number || item.rowNumber || item.content_id || item.contentId;\n                    setContentList(prev => prev.map(row => {\n                      const rowKey = row.row_number || row.rowNumber || row.content_id || row.contentId;\n                      return String(rowKey) === String(key) ? updated : row;\n                    }));\n                    try {\n                      showToast('Memindahkan jadwal...', 'info');\n                      await backendService.saveContent(currentUser, updated);\n                      showToast('Jadwal berhasil dipindahkan!', 'success');\n                      await refreshData();\n                    } catch (err) {\n                      showToast(err.message || 'Gagal memindahkan jadwal', 'error');\n                      await refreshData();\n                    }\n                  }}`
     );
 
@@ -75,9 +75,12 @@ export default async function middleware() {
       "const [contentList, setContentList] = useState(() => { try { return JSON.parse(localStorage.getItem('content_os_content_cache') || '[]'); } catch (_) { return []; } });"
     );
 
+    // IMPORTANT: contentList must contain ALL months. The calendar itself filters
+    // by filterMonth. Filtering the data fetch here causes cross-month edits to
+    // appear as duplicates in the old month and makes the new month disappear.
     html = html.replace(
-      'setContentList(items);\n    setUsers([...backendService.users]);',
-      "setContentList(items);\n    try { localStorage.setItem('content_os_content_cache', JSON.stringify(items)); } catch (_) {}\n    setUsers([...backendService.users]);"
+      `const items = await backendService.getSharedCalendar(\n      currentUser,\n      { month: filterMonth }\n    );\n\n    setContentList(items);`,
+      `const allData = await backendService._loadData();\n    const items = allData.content || [];\n\n    setContentList(items);`
     );
 
     html = html.replace(
