@@ -25,7 +25,7 @@ export default async function middleware() {
       "const dStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;"
     );
 
-    // Pass the selected month into the calendar so changing the dropdown re-renders immediately.
+    // Inject the selected month into the actual calendar invocation.
     html = html.replace(
       /(<ClayContentCalendar\s+contentList=\{contentList\})/,
       '$1\n                  filterMonth={filterMonth}'
