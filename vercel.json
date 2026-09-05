@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/api/calendar-page" }
+    { "source": "/", "destination": "/api/calendar-page.js" },
+    { "source": "/index.html", "destination": "/api/calendar-page.js" }
   ]
 }
