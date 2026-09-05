@@ -3,8 +3,6 @@ name: Optimize Save UI
 on:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/optimize-save-ui.yml'
 
 permissions:
   contents: write
@@ -38,7 +36,7 @@ jobs:
                   raise SystemExit('bulk delete handler block not found')
               text = text.replace(old, new, 1)
 
-          # Remove the now-duplicated outer catch block left by the original handler.\n          old_catch = """        } catch (err) {\n          setHiddenIds([]);\n          await refreshData();\n          showToast(err.message, 'error');\n        }\n      }}"""
+          old_catch = """        } catch (err) {\n          setHiddenIds([]);\n          await refreshData();\n          showToast(err.message, 'error');\n        }\n      }}"""
           if old_catch in text:
               text = text.replace(old_catch, "      }}", 1)
 
