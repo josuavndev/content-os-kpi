@@ -109,6 +109,7 @@
 
   <script type="text/babel">
     const { useState, useEffect, useMemo, useCallback } = React;
+    const { flushSync } = ReactDOM;
 
     // --- Inline High-Resolution SVG Icons for Zero External Dependency Failure ---
     const Icon = {
@@ -1603,20 +1604,37 @@ onSave={(updated) => {
     return [optimisticContent, ...prev];
   });
 
-  // Beri browser satu frame untuk paint UI optimistis terlebih dahulu.
-  requestAnimationFrame(() => {
+  // Paksa React commit perubahan optimistis ke DOM sebelum request backend.
+  flushSync(() => {
+    setContentList(prev => {
+      const existingIndex = prev.findIndex(
+        item =>
+          item.content_id === updated.content_id ||
+          item.content_id === updated.contentId
+      );
+
+      if (existingIndex >= 0) {
+        const next = [...prev];
+        next[existingIndex] = optimisticContent;
+        return next;
+      }
+
+      return [optimisticContent, ...prev];
+    });
+  });
+
+  // Lepaskan request backend ke event loop setelah DOM sudah ter-commit.
+  setTimeout(() => {
     backendService.saveContent(currentUser, updated)
       .then(() => {
         showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
-
-        // Sync setelah request backend selesai, tanpa menahan render UI.
         refreshData();
       })
       .catch((err) => {
         showToast(err.message, 'error');
         refreshData();
       });
-  });
+  }, 0);
 }}
             />
           )}
