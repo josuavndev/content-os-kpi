@@ -75,6 +75,41 @@ export default async function middleware() {
       "onChange={(e) => { const value = e.target.value; localStorage.setItem('content_os_filter_month', value); setFilterMonth(value); }}"
     );
 
+    // Google Calendar-inspired visual treatment. Keep the existing React logic untouched:
+    // only change presentation classes so this cannot introduce JSX/runtime syntax errors.
+    html = html.replace(
+      '<div className="space-y-5">',
+      '<div className="space-y-5">'
+    );
+    html = html.replace(
+      '<div className="clay-surface p-4 overflow-hidden">',
+      '<div className="bg-white border border-slate-200 rounded-2xl shadow-none p-0 overflow-hidden">'
+    );
+    html = html.replace(
+      '<div className="grid grid-cols-7 text-center text-[11px] font-extrabold text-slate-400 uppercase tracking-wider py-2 mb-2 border-b border-slate-200">',
+      '<div className="grid grid-cols-7 text-center text-[10px] font-extrabold text-slate-500 uppercase tracking-wider py-3 border-b border-slate-200 bg-slate-50">'
+    );
+    html = html.replace(
+      '<div className="grid grid-cols-7 gap-2">',
+      '<div className="grid grid-cols-7 gap-0 border-l border-t border-slate-200">'
+    );
+    html = html.replace(
+      'className="min-h-[100px] opacity-20"',
+      'className="min-h-[112px] bg-slate-50/70 border-r border-b border-slate-200"'
+    );
+    html = html.replace(
+      'className="min-h-[100px] clay-card p-2 hover:bg-indigo-50/50 cursor-pointer transition flex flex-col justify-between"',
+      'className="min-h-[112px] bg-white p-2.5 hover:bg-indigo-50/40 cursor-pointer transition flex flex-col justify-between border-r border-b border-slate-200 rounded-none shadow-none"'
+    );
+    html = html.replace(
+      '<div className="flex justify-between text-xs font-black text-slate-700">',
+      '<div className="flex justify-between items-start text-xs font-black text-slate-700">'
+    );
+    html = html.replace(
+      'className={`p-1 rounded-xl text-[9px] font-bold truncate border shadow-xs ${STATUS_BADGE[item.status]}`}',
+      'className={`px-1.5 py-1 rounded-md text-[9px] font-bold truncate border-l-2 shadow-none ${STATUS_BADGE[item.status]}`}'
+    );
+
     return new Response(html, {
       status: 200,
       headers: {
