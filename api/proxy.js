@@ -2,6 +2,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbzH4JF301T4z4uZjWNk7PM1
 
 const dataCache = new Map();
 const dataInFlight = new Map();
+const mutationVersion = new Map();
 const DATA_CACHE_MS = 1500;
 
 function normalizeDateKey(value) {
@@ -15,9 +16,9 @@ function normalizeDateKey(value) {
     const [, day, month, year] = dmy;
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
-  const parsed = new Date(raw);
-  if (!Number.isNaN(parsed.getTime())) {
-    return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}-${String(parsed.getUTCDate()).padStart(2, '0')}`;
+  const d = new Date(raw);
+  if (!Number.isNaN(d.getTime())) {
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
   }
   return '';
 }
@@ -100,6 +101,12 @@ async function reconcileContentEdit(token, beforeData, savedContent) {
   }
 }
 
+function markMutation(token) {
+  mutationVersion.set(token, (mutationVersion.get(token) || 0) + 1);
+  dataCache.delete(token);
+  dataInFlight.delete(token);
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') return res.status(405).json({ status: 'error', message: 'Method not allowed' });
@@ -111,7 +118,9 @@ export default async function handler(req, res) {
     const token = payload.token || '';
     const isGetData = payload.action === 'getData' && token;
 
-    if (!isGetData && token) dataCache.delete(token);
+    if (!isGetData && token) {
+      markMutation(token);
+    }
 
     if (isGetData) {
       const cached = dataCache.get(token);
@@ -120,16 +129,20 @@ export default async function handler(req, res) {
       const existing = dataInFlight.get(token);
       if (existing) return res.status(200).json(await existing);
 
+      const versionAtStart = mutationVersion.get(token) || 0;
       const request = fetchGas(body)
-        .then(data => { dataCache.set(token, { data, timestamp: Date.now() }); return data; })
+        .then(data => {
+          if ((mutationVersion.get(token) || 0) === versionAtStart) {
+            dataCache.set(token, { data, timestamp: Date.now() });
+          }
+          return data;
+        })
         .finally(() => dataInFlight.delete(token));
       dataInFlight.set(token, request);
       try { return res.status(200).json(await request); }
       catch (error) { return res.status(502).json({ status: 'error', message: error.message || 'Google Apps Script error' }); }
     }
 
-    // Apps Script's saveContent implementation may append a new row instead of updating
-    // an existing one. Reconcile that case here so an edit remains one logical content item.
     if (payload.action === 'saveContent' && token && payload.content) {
       let beforeData = null;
       try { beforeData = await fetchGas(JSON.stringify({ action: 'getData', token })); } catch (_) {}
@@ -142,7 +155,39 @@ export default async function handler(req, res) {
         console.warn('Content edit reconciliation failed:', reconcileError);
       }
 
+      markMutation(token);
       return res.status(200).json(saved);
+    }
+
+    if (payload.action === 'deleteContent' && token) {
+      let rowNumber = payload.row_number || payload.rowNumber || '';
+
+      // If the UI could not carry the sheet row number, resolve it safely from the
+      // current dataset using content_id before asking Apps Script to delete.
+      if (!rowNumber) {
+        try {
+          const current = await fetchGas(JSON.stringify({ action: 'getData', token }));
+          const rows = Array.isArray(current?.data?.content) ? current.data.content : [];
+          const targetId = payload.content_id || payload.contentId || '';
+          const targetTitle = String(payload.content_title || '').trim();
+          const targetDate = normalizeDateKey(payload.publish_date);
+          const match = rows.find(item => {
+            if (targetId && String(getContentId(item)) === String(targetId)) return true;
+            return targetTitle && String(item?.content_title || '').trim() === targetTitle &&
+              (!targetDate || normalizeDateKey(item?.publish_date) === targetDate);
+          });
+          rowNumber = getRowNumber(match);
+        } catch (_) {}
+      }
+
+      if (!rowNumber) {
+        return res.status(400).json({ status: 'error', message: 'Baris Google Sheets untuk content ini tidak ditemukan.' });
+      }
+
+      const deleteBody = JSON.stringify({ action: 'deleteContent', token, row_number: rowNumber });
+      const deleted = await fetchGas(deleteBody);
+      markMutation(token);
+      return res.status(200).json(deleted);
     }
 
     return res.status(200).json(await fetchGas(body));
