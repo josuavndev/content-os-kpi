@@ -6,6 +6,65 @@ const dataCache = new Map();
 const dataInFlight = new Map();
 const DATA_CACHE_MS = 1500;
 
+function normalizeDateKey(value) {
+  if (!value) return '';
+  const raw = String(value).trim();
+  const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
+
+  const dmy = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  if (dmy) {
+    const [, day, month, year] = dmy;
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}-${String(parsed.getUTCDate()).padStart(2, '0')}`;
+  }
+
+  return raw;
+}
+
+function normalizeDataset(data) {
+  if (!data || !data.data || !Array.isArray(data.data.content)) return data;
+
+  data.data.content = data.data.content.map(item => ({
+    ...item,
+    publish_date: normalizeDateKey(item.publish_date)
+  }));
+
+  return data;
+}
+
+async function fetchGas(body) {
+  const response = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8'
+    },
+    body,
+    redirect: 'follow'
+  });
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    console.error('GAS ERROR:', response.status, text.substring(0, 1000));
+    throw new Error(`Google Apps Script error ${response.status}`);
+  }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (error) {
+    console.error('GAS NON-JSON RESPONSE:', text.substring(0, 1000));
+    throw new Error('Google Apps Script masih mengembalikan HTML, bukan JSON');
+  }
+
+  return normalizeDataset(data);
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') {
@@ -31,7 +90,6 @@ export default async function handler(req, res) {
     const isGetData = payload.action === 'getData' && token;
 
     if (!isGetData && token) {
-      // Any mutation invalidates the short-lived cached dataset for this session.
       dataCache.delete(token);
     }
 
@@ -47,34 +105,14 @@ export default async function handler(req, res) {
         return res.status(200).json(data);
       }
 
-      const request = fetch(GAS_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body,
-        redirect: 'follow'
-      }).then(async response => {
-        const text = await response.text();
-
-        if (!response.ok) {
-          console.error('GAS ERROR:', response.status, text.substring(0, 1000));
-          throw new Error(`Google Apps Script error ${response.status}`);
-        }
-
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (error) {
-          console.error('GAS NON-JSON RESPONSE:', text.substring(0, 1000));
-          throw new Error('Google Apps Script masih mengembalikan HTML, bukan JSON');
-        }
-
-        dataCache.set(token, { data, timestamp: Date.now() });
-        return data;
-      }).finally(() => {
-        dataInFlight.delete(token);
-      });
+      const request = fetchGas(body)
+        .then(data => {
+          dataCache.set(token, { data, timestamp: Date.now() });
+          return data;
+        })
+        .finally(() => {
+          dataInFlight.delete(token);
+        });
 
       dataInFlight.set(token, request);
 
@@ -89,37 +127,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const response = await fetch(GAS_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8'
-      },
-      body,
-      redirect: 'follow'
-    });
-
-    const text = await response.text();
-
-    if (!response.ok) {
-      console.error('GAS ERROR:', response.status, text.substring(0, 1000));
-      return res.status(502).json({
-        status: 'error',
-        message: `Google Apps Script error ${response.status}`
-      });
-    }
-
-    let data;
-
-    try {
-      data = JSON.parse(text);
-    } catch (error) {
-      console.error('GAS NON-JSON RESPONSE:', text.substring(0, 1000));
-      return res.status(502).json({
-        status: 'error',
-        message: 'Google Apps Script masih mengembalikan HTML, bukan JSON'
-      });
-    }
-
+    const data = await fetchGas(body);
     return res.status(200).json(data);
 
   } catch (error) {
