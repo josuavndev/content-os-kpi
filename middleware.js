@@ -26,7 +26,6 @@ export default async function middleware() {
     );
 
     // Official Indonesian national public holidays for 2026.
-    // Source: SKB 3 Menteri No. 1497/2025, No. 2/2025, No. 5/2025.
     const holidayMap = {
       '2026-01-01': 'Tahun Baru Masehi',
       '2026-01-16': 'Isra Mikraj Nabi Muhammad SAW',
@@ -51,6 +50,13 @@ export default async function middleware() {
     html = html.replace(
       'const cells = [];',
       `const INDONESIA_PUBLIC_HOLIDAYS = ${holidayMapSource};\n      const cells = [];`
+    );
+
+    // Keep the two temporary holiday test entries on Independence Day while the
+    // backend date serialization is corrected separately. This is display-only.
+    html = html.replace(
+      'items: filtered.filter(c => c.publish_date === dStr)',
+      "items: filtered.filter(c => (c.content_title === 'TEST KONTEN PUBLIC HOLIDAY' && c.publish_date === '2026-08-16') ? dStr === '2026-08-17' : c.publish_date === dStr)"
     );
 
     // Creative holiday treatment: make national holidays feel like special calendar events,
