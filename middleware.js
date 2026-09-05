@@ -46,12 +46,7 @@ export default async function middleware() {
       `<span className="flex flex-col min-w-0 h-full">\n                        <span className={INDONESIA_PUBLIC_HOLIDAYS[cell.dateStr] ? 'text-rose-600 font-black' : ''}>{cell.day}</span>\n                        {INDONESIA_PUBLIC_HOLIDAYS[cell.dateStr] && (\n                          <span className="mt-1.5 relative overflow-hidden rounded-lg border border-rose-100 bg-gradient-to-r from-rose-50 via-white to-rose-50 px-2 py-1.5 text-rose-700 shadow-sm" title={INDONESIA_PUBLIC_HOLIDAYS[cell.dateStr]}>\n                            <span className="absolute -right-3 -top-3 h-8 w-8 rounded-full bg-rose-100/70"></span>\n                            <span className="relative flex items-center gap-1.5 min-w-0">\n                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white border border-rose-100 text-[10px] shadow-sm">🇮🇩</span>\n                              <span className="min-w-0">\n                                <span className="block text-[7px] font-black uppercase tracking-[0.12em] text-rose-400">Libur Nasional</span>\n                                <span className="block text-[8px] leading-tight font-extrabold truncate">{INDONESIA_PUBLIC_HOLIDAYS[cell.dateStr]}</span>\n                              </span>\n                            </span>\n                          </span>\n                        )}\n                      </span>`
     );
 
-    html = html.replace(
-      /(<ClayContentCalendar\s+contentList=\{contentList\})/,
-      '$1\n                  filterMonth={filterMonth}\n                  onMoveContent={onMoveContent}'
-    );
-
-    // Make event pills draggable and date cells valid drop targets.
+    // Calendar event pills can be dragged onto another date.
     html = html.replace(
       'onClick={() => onCreateNew(cell.dateStr)}',
       "onClick={() => onCreateNew(cell.dateStr)}\n                  onDragOver={(e) => e.preventDefault()}\n                  onDrop={(e) => { e.preventDefault(); const rowNumber = e.dataTransfer.getData('content-row'); const item = contentList.find(c => String(c.row_number || c.rowNumber || '') === String(rowNumber)); if (item && onMoveContent) onMoveContent(item, cell.dateStr); }}"
@@ -59,6 +54,11 @@ export default async function middleware() {
     html = html.replace(
       'key={item.content_id}\n                        onClick={(e) => { e.stopPropagation(); onSelectContent(item); }}',
       "key={item.content_id || item.row_number}\n                        draggable={true}\n                        onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('content-row', String(item.row_number || item.rowNumber || '')); }}\n                        onClick={(e) => { e.stopPropagation(); onSelectContent(item); }}"
+    );
+
+    html = html.replace(
+      /(<ClayContentCalendar\s+contentList=\{contentList\})/, 
+      `$1\n                  filterMonth={filterMonth}\n                  onMoveContent={async (item, newDate) => {\n                    if (!item || !newDate || String(item.publish_date || '') === String(newDate)) return;\n                    const updated = { ...item, publish_date: newDate };\n                    const key = item.row_number || item.rowNumber || item.content_id || item.contentId;\n                    setContentList(prev => prev.map(row => {\n                      const rowKey = row.row_number || row.rowNumber || row.content_id || row.contentId;\n                      return String(rowKey) === String(key) ? updated : row;\n                    }));\n                    try {\n                      showToast('Memindahkan jadwal...', 'info');\n                      await backendService.saveContent(currentUser, updated);\n                      showToast('Jadwal berhasil dipindahkan!', 'success');\n                      await refreshData();\n                    } catch (err) {\n                      showToast(err.message || 'Gagal memindahkan jadwal', 'error');\n                      await refreshData();\n                    }\n                  }}`
     );
 
     html = html.replace(
@@ -100,10 +100,8 @@ export default async function middleware() {
       `onBulkDeleteMode={() => {\n  setIsContentModalOpen(false);\n  setBulkDeleteMode(true);\n}}\nonDelete={async (contentToDelete) => {\n  const rowNumber = contentToDelete?.row_number || contentToDelete?.rowNumber;\n  if (!rowNumber) {\n    showToast('Row Google Sheets tidak ditemukan untuk content ini.', 'error');\n    return;\n  }\n  showToast('Content sedang dihapus...', 'info');\n  try {\n    await backendService.deleteContent(currentUser, rowNumber);\n    setIsContentModalOpen(false);\n    setSelectedContent(null);\n    showToast('Content berhasil dihapus!', 'success');\n    await refreshData();\n  } catch (err) {\n    showToast(err.message || 'Gagal menghapus content', 'error');\n  }\n}}\nonSave={(updated) => {`
     );
 
-    // Preserve row identity and compare against the persisted row BEFORE saving.
-    // The Apps Script saveContent endpoint is append-oriented, so cross-date edits
-    // are reconciled into a true move by deleting the original row only after the
-    // new row is confirmed.
+    // Preserve the original sheet row and compare against its persisted date BEFORE saving.
+    // This converts the append-style Apps Script save into a true MOVE for date edits.
     html = html.replace(
       `async saveContent(currentUser, contentData) {\n  \n  this._authorize(currentUser);\n\n  const data = await this._post({\n    action: 'saveContent',\n    content: contentData\n  });`,
       `async saveContent(currentUser, contentData) {\n  \n  this._authorize(currentUser);\n\n  const originalRowNumber = contentData?.row_number || contentData?.rowNumber || '';\n  const originalContentId = contentData?.content_id || contentData?.contentId || '';\n  const originalTitle = String(contentData?.content_title || '').trim();\n  const originalCreatorId = contentData?.creator_id || '';\n  let beforeRows = [];\n\n  if (originalRowNumber) {\n    try {\n      const before = await this._post({ action: 'getData' });\n      beforeRows = Array.isArray(before?.data?.content) ? before.data.content : [];\n    } catch (_) {}\n  }\n\n  const originalRow = beforeRows.find(item => String(item?.row_number || item?.rowNumber || '') === String(originalRowNumber));\n  const originalDate = String(originalRow?.publish_date || '');\n\n  const data = await this._post({\n    action: 'saveContent',\n    content: contentData\n  });`
@@ -112,20 +110,6 @@ export default async function middleware() {
     html = html.replace(
       `  if (data.status !== 'ok') {\n    throw new Error(\n      data.message || 'Gagal menyimpan content'\n    );\n  }\n\n  return data;\n}`,
       `  if (data.status !== 'ok') {\n    throw new Error(\n      data.message || 'Gagal menyimpan content'\n    );\n  }\n\n  const targetDate = String(contentData?.publish_date || '');\n  if (originalRowNumber && originalDate && originalDate !== targetDate) {\n    try {\n      const after = await this._post({ action: 'getData' });\n      const rows = Array.isArray(after?.data?.content) ? after.data.content : [];\n      const newRow = rows.find(item => {\n        const row = String(item?.row_number || item?.rowNumber || '');\n        if (row === String(originalRowNumber)) return false;\n        const idMatch = originalContentId && String(item?.content_id || item?.contentId || '') === String(originalContentId);\n        const titleMatch = originalTitle && String(item?.content_title || '').trim() === originalTitle;\n        const creatorMatch = !originalCreatorId || String(item?.creator_id || '') === String(originalCreatorId);\n        return (idMatch || titleMatch) && creatorMatch && String(item?.publish_date || '') === targetDate;\n      });\n\n      if (newRow) {\n        await this._post({ action: 'deleteContent', row_number: originalRowNumber });\n      }\n    } catch (reconcileError) {\n      console.warn('Content move reconciliation failed:', reconcileError);\n    }\n  }\n\n  return data;\n}`
-    );
-
-    // Normal edit/save path: preserve the original row and make the UI update
-    // immediately. The backend save method above performs the true move.
-    html = html.replace(
-      `onSave={(updated) => {\n  setIsContentModalOpen(false);\n  showToast('Konten sedang disimpan...', 'info');`,
-      `onSave={(updated) => {\n  setIsContentModalOpen(false);\n  showToast('Konten sedang disimpan...', 'info');`
-    );
-
-    // Calendar drag-and-drop uses the exact same save path as modal editing, so
-    // All Content and Calendar always receive the same updated object.
-    html = html.replace(
-      `onSave={(updated) => {`,
-      `onMoveContent={async (item, newDate) => {\n  if (!item || !newDate || String(item.publish_date || '') === String(newDate)) return;\n  const updated = { ...item, publish_date: newDate };\n  const key = item.row_number || item.rowNumber || item.content_id || item.contentId;\n  setContentList(prev => prev.map(row => {\n    const rowKey = row.row_number || row.rowNumber || row.content_id || row.contentId;\n    return String(rowKey) === String(key) ? updated : row;\n  }));\n  try {\n    showToast('Memindahkan jadwal...', 'info');\n    await backendService.saveContent(currentUser, updated);\n    showToast('Jadwal berhasil dipindahkan!', 'success');\n    await refreshData();\n  } catch (err) {\n    showToast(err.message || 'Gagal memindahkan jadwal', 'error');\n    await refreshData();\n  }\n}}\nonSave={(updated) => {`
     );
 
     return new Response(html, {
