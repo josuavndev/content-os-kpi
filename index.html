@@ -1603,19 +1603,20 @@ onSave={(updated) => {
     return [optimisticContent, ...prev];
   });
 
-  backendService.saveContent(currentUser, updated)
-    .then(() => {
-      showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
+  // Beri browser satu frame untuk paint UI optimistis terlebih dahulu.
+  requestAnimationFrame(() => {
+    backendService.saveContent(currentUser, updated)
+      .then(() => {
+        showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
 
-      // Sync dengan backend setelah UI sudah terasa instan
-      setTimeout(() => {
+        // Sync setelah request backend selesai, tanpa menahan render UI.
         refreshData();
-      }, 1500);
-    })
-    .catch((err) => {
-      showToast(err.message, 'error');
-      refreshData();
-    });
+      })
+      .catch((err) => {
+        showToast(err.message, 'error');
+        refreshData();
+      });
+  });
 }}
             />
           )}
