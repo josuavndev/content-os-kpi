@@ -24,90 +24,17 @@ jobs:
           path = Path('index.html')
           text = path.read_text(encoding='utf-8')
 
-          old = '''  setContentList(prev => {
-    const existingIndex = prev.findIndex(
-      item =>
-        item.content_id === updated.content_id ||
-        item.content_id === updated.contentId
-    );
+          marker = "  // Paksa React commit perubahan optimistis ke DOM sebelum request backend."
+          if marker not in text:
+              raise SystemExit('Duplicate optimistic save block not found')
 
-    if (existingIndex >= 0) {
-      const next = [...prev];
-      next[existingIndex] = optimisticContent;
-      return next;
-    }
+          start = text.find("  setContentList(prev => {", text.find("const optimisticContent = {"))
+          end = text.find(marker, start)
+          if start == -1 or end == -1:
+              raise SystemExit('Could not locate first optimistic setContentList block')
 
-    return [optimisticContent, ...prev];
-  });
-
-  // Paksa React commit perubahan optimistis ke DOM sebelum request backend.
-  flushSync(() => {
-    setContentList(prev => {
-      const existingIndex = prev.findIndex(
-        item =>
-          item.content_id === updated.content_id ||
-          item.content_id === updated.contentId
-      );
-
-      if (existingIndex >= 0) {
-        const next = [...prev];
-        next[existingIndex] = optimisticContent;
-        return next;
-      }
-
-      return [optimisticContent, ...prev];
-    });
-  });
-
-  // Lepaskan request backend ke event loop setelah DOM sudah ter-commit.
-  setTimeout(() => {
-    backendService.saveContent(currentUser, updated)
-      .then(() => {
-        showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
-        refreshData();
-      })
-      .catch((err) => {
-        showToast(err.message, 'error');
-        refreshData();
-      });
-  }, 0);'''
-
-          new = '''  // Commit UI optimistis secara sinkron sebelum request backend.
-  flushSync(() => {
-    setContentList(prev => {
-      const existingIndex = prev.findIndex(
-        item =>
-          item.content_id === updated.content_id ||
-          item.content_id === updated.contentId
-      );
-
-      if (existingIndex >= 0) {
-        const next = [...prev];
-        next[existingIndex] = optimisticContent;
-        return next;
-      }
-
-      return [optimisticContent, ...prev];
-    });
-  });
-
-  // Backend berjalan setelah UI sudah ter-commit.
-  setTimeout(() => {
-    backendService.saveContent(currentUser, updated)
-      .then(() => {
-        showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
-        refreshData();
-      })
-      .catch((err) => {
-        showToast(err.message, 'error');
-        refreshData();
-      });
-  }, 0);'''
-
-          if text.count(old) != 1:
-              raise SystemExit(f'Expected exactly one duplicate save block, found {text.count(old)}')
-
-          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          text = text[:start] + text[end:]
+          path.write_text(text, encoding='utf-8')
           PY
 
       - name: Commit patch
@@ -116,5 +43,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git diff --cached --quiet && exit 0
-          git commit -m "fix: synchronous optimistic save render"
+          git commit -m "fix: remove duplicate optimistic save render"
           git push
