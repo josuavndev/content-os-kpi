@@ -2182,7 +2182,8 @@ function ClayContentTable({
 }) {
       const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
-      const filtered = contentList.filter(c => !search || c.content_title.toLowerCase().includes(search.toLowerCase()) || c.creator_name.toLowerCase().includes(search.toLowerCase()));
+  const [hiddenIds, setHiddenIds] = useState([]);
+      const filtered = contentList.filter(c => !hiddenIds.includes(c.row_number) && (!search || c.content_title.toLowerCase().includes(search.toLowerCase()) || c.creator_name.toLowerCase().includes(search.toLowerCase())));
 
       return (
         <div className="space-y-5">
@@ -2215,6 +2216,12 @@ function ClayContentTable({
       onClick={async () => {
         if (!window.confirm(`Hapus ${selectedIds.length} content yang dipilih?`)) return;
 
+        const idsToDelete = [...selectedIds];
+        setHiddenIds(idsToDelete);
+        setSelectedIds([]);
+        onExitBulkDeleteMode();
+        showToast('Content sedang dihapus...', 'info');
+
         try {
 for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
   await backendService.deleteContent(
@@ -2223,11 +2230,12 @@ for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
   );
 }
 
-          setSelectedIds([]);
-          onExitBulkDeleteMode();
+          setHiddenIds([]);
           await refreshData();
           showToast('Content terpilih berhasil dihapus!', 'success');
         } catch (err) {
+          setHiddenIds([]);
+          await refreshData();
           showToast(err.message, 'error');
         }
       }}
