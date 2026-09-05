@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Patch bulk delete refresh
+      - name: Patch bulk delete paint
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -24,16 +24,24 @@ jobs:
           path = Path('index.html')
           text = path.read_text(encoding='utf-8')
 
-          old = """          setHiddenIds([]);\n          await refreshData();\n          showToast('Content terpilih berhasil dihapus!', 'success');\n        } catch (err) {\n          setHiddenIds([]);\n          await refreshData();\n          showToast(err.message, 'error');\n        }"""
+          state_old = "  const [hiddenIds, setHiddenIds] = useState([]);\n"
+          state_new = state_old
+          if state_old not in text:
+              raise SystemExit('hiddenIds state not found')
 
-          new = """          showToast('Content terpilih berhasil dihapus!', 'success');\n          refreshData().finally(() => setHiddenIds([]));\n        } catch (err) {\n          setHiddenIds([]);\n          await refreshData();\n          showToast(err.message, 'error');\n        }"""
+          old = """        const idsToDelete = [...selectedIds];\n        setHiddenIds(idsToDelete);\n        setSelectedIds([]);\n        onExitBulkDeleteMode();\n        showToast('Content sedang dihapus...', 'info');\n\n        try {\nfor (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {\n  await backendService.deleteContent(\n    currentUser,\n    rowNumber\n  );\n}\n\n          showToast('Content terpilih berhasil dihapus!', 'success');\n          refreshData().finally(() => setHiddenIds([]));"""
 
-          if new in text:
-              raise SystemExit(0)
-          if old not in text:
-              raise SystemExit('bulk delete refresh block not found')
+          new = """        const idsToDelete = [...selectedIds];\n\n        // Paksa tabel langsung repaint sebelum request delete berjalan.\n        flushSync(() => {\n          setHiddenIds(idsToDelete);\n          setSelectedIds([]);\n          onExitBulkDeleteMode();\n        });\n        showToast('Content sedang dihapus...', 'info');\n\n        setTimeout(async () => {\n          try {\n            for (const rowNumber of [...idsToDelete].sort((a, b) => b - a)) {\n              await backendService.deleteContent(\n                currentUser,\n                rowNumber\n              );\n            }\n\n            showToast('Content terpilih berhasil dihapus!', 'success');\n            refreshData().finally(() => setHiddenIds([]));\n          } catch (err) {\n            setHiddenIds([]);\n            await refreshData();\n            showToast(err.message, 'error');\n          }\n        }, 0);\n        return;"""
 
-          text = text.replace(old, new, 1)
+          if new not in text:
+              if old not in text:
+                  raise SystemExit('bulk delete handler block not found')
+              text = text.replace(old, new, 1)
+
+          # Remove the now-duplicated outer catch block left by the original handler.\n          old_catch = """        } catch (err) {\n          setHiddenIds([]);\n          await refreshData();\n          showToast(err.message, 'error');\n        }\n      }}"""
+          if old_catch in text:
+              text = text.replace(old_catch, "      }}", 1)
+
           path.write_text(text, encoding='utf-8')
           PY
 
@@ -43,5 +51,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git diff --cached --quiet && exit 0
-          git commit -m "perf: avoid blocking bulk delete on refresh"
+          git commit -m "perf: paint bulk delete UI before backend requests"
           git push
