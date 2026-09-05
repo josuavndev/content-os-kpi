@@ -2217,26 +2217,33 @@ function ClayContentTable({
         if (!window.confirm(`Hapus ${selectedIds.length} content yang dipilih?`)) return;
 
         const idsToDelete = [...selectedIds];
-        setHiddenIds(idsToDelete);
-        setSelectedIds([]);
-        onExitBulkDeleteMode();
+
+        // Paksa tabel langsung repaint sebelum request delete berjalan.
+        flushSync(() => {
+          setHiddenIds(idsToDelete);
+          setSelectedIds([]);
+          onExitBulkDeleteMode();
+        });
         showToast('Content sedang dihapus...', 'info');
 
-        try {
-for (const rowNumber of [...selectedIds].sort((a, b) => b - a)) {
-  await backendService.deleteContent(
-    currentUser,
-    rowNumber
-  );
-}
+        setTimeout(async () => {
+          try {
+            for (const rowNumber of [...idsToDelete].sort((a, b) => b - a)) {
+              await backendService.deleteContent(
+                currentUser,
+                rowNumber
+              );
+            }
 
-          showToast('Content terpilih berhasil dihapus!', 'success');
-          refreshData().finally(() => setHiddenIds([]));
-        } catch (err) {
-          setHiddenIds([]);
-          await refreshData();
-          showToast(err.message, 'error');
-        }
+            showToast('Content terpilih berhasil dihapus!', 'success');
+            refreshData().finally(() => setHiddenIds([]));
+          } catch (err) {
+            setHiddenIds([]);
+            await refreshData();
+            showToast(err.message, 'error');
+          }
+        }, 0);
+        return;
       }}
       className="clay-btn bg-red-100 px-4 py-2 text-xs font-bold text-red-600"
     >
