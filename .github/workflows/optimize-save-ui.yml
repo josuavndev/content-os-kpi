@@ -24,21 +24,91 @@ jobs:
           path = Path('index.html')
           text = path.read_text(encoding='utf-8')
 
-          marker = "    const { useState, useEffect, useMemo, useCallback } = React;"
-          if "const { flushSync } = ReactDOM;" not in text:
-              if text.count(marker) != 1:
-                  raise SystemExit('React import marker not found exactly once')
-              text = text.replace(marker, marker + "\n    const { flushSync } = ReactDOM;", 1)
+          old = '''  setContentList(prev =>
+    {
+      const existingIndex = prev.findIndex(
+        item =>
+          item.content_id === updated.content_id ||
+          item.content_id === updated.contentId
+      );
 
-          old = '''  // Beri browser satu frame untuk paint UI optimistis terlebih dahulu.\n  requestAnimationFrame(() => {\n    backendService.saveContent(currentUser, updated)\n      .then(() => {\n        showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');\n\n        // Sync setelah request backend selesai, tanpa menahan render UI.\n        refreshData();\n      })\n      .catch((err) => {\n        showToast(err.message, 'error');\n        refreshData();\n      });\n  });'''
+      if (existingIndex >= 0) {
+        const next = [...prev];
+        next[existingIndex] = optimisticContent;
+        return next;
+      }
 
-          new = '''  // Paksa React commit perubahan optimistis ke DOM sebelum request backend.\n  flushSync(() => {\n    setContentList(prev => {\n      const existingIndex = prev.findIndex(\n        item =>\n          item.content_id === updated.content_id ||\n          item.content_id === updated.contentId\n      );\n\n      if (existingIndex >= 0) {\n        const next = [...prev];\n        next[existingIndex] = optimisticContent;\n        return next;\n      }\n\n      return [optimisticContent, ...prev];\n    });\n  });\n\n  // Lepaskan request backend ke event loop setelah DOM sudah ter-commit.\n  setTimeout(() => {\n    backendService.saveContent(currentUser, updated)\n      .then(() => {\n        showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');\n        refreshData();\n      })\n      .catch((err) => {\n        showToast(err.message, 'error');\n        refreshData();\n      });\n  }, 0);'''
+      return [optimisticContent, ...prev];
+    });
+
+  // Paksa React commit perubahan optimistis ke DOM sebelum request backend.
+  flushSync(() => {
+    setContentList(prev => {
+      const existingIndex = prev.findIndex(
+        item =>
+          item.content_id === updated.content_id ||
+          item.content_id === updated.contentId
+      );
+
+      if (existingIndex >= 0) {
+        const next = [...prev];
+        next[existingIndex] = optimisticContent;
+        return next;
+      }
+
+      return [optimisticContent, ...prev];
+    });
+  });
+
+  // Lepaskan request backend ke event loop setelah DOM sudah ter-commit.
+  setTimeout(() => {
+    backendService.saveContent(currentUser, updated)
+      .then(() => {
+        showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
+        refreshData();
+      })
+      .catch((err) => {
+        showToast(err.message, 'error');
+        refreshData();
+      });
+  }, 0);'''
+
+          new = '''  // Commit UI optimistis secara sinkron sebelum request backend.
+  flushSync(() => {
+    setContentList(prev => {
+      const existingIndex = prev.findIndex(
+        item =>
+          item.content_id === updated.content_id ||
+          item.content_id === updated.contentId
+      );
+
+      if (existingIndex >= 0) {
+        const next = [...prev];
+        next[existingIndex] = optimisticContent;
+        return next;
+      }
+
+      return [optimisticContent, ...prev];
+    });
+  });
+
+  // Backend berjalan setelah UI sudah ter-commit.
+  setTimeout(() => {
+    backendService.saveContent(currentUser, updated)
+      .then(() => {
+        showToast('Konten berhasil disimpan & KPI diperbarui!', 'success');
+        refreshData();
+      })
+      .catch((err) => {
+        showToast(err.message, 'error');
+        refreshData();
+      });
+  }, 0);'''
 
           if text.count(old) != 1:
-              raise SystemExit(f'Expected exactly one current save handler, found {text.count(old)}')
+              raise SystemExit(f'Expected exactly one current save block, found {text.count(old)}')
 
-          text = text.replace(old, new, 1)
-          path.write_text(text, encoding='utf-8')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
 
       - name: Commit patch
@@ -47,5 +117,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git diff --cached --quiet && exit 0
-          git commit -m "perf: force synchronous optimistic save render"
+          git commit -m "fix: synchronous optimistic save render"
           git push
