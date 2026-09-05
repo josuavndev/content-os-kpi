@@ -1,0 +1,190 @@
+name: Apply Calendar Fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-calendar-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch calendar
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('index.html')
+          text = path.read_text(encoding='utf-8')
+
+          old_component = '''    function ClayContentCalendar({ contentList, onSelectContent, onCreateNew }) {
+      const [filterPlatform, setFilterPlatform] = useState('ALL');
+      const [filterType, setFilterType] = useState('ALL');
+      const [search, setSearch] = useState('');
+
+      const filtered = useMemo(() => {
+        return contentList.filter(c => {
+          const matchP = filterPlatform === 'ALL' || c.platform === filterPlatform;
+          const matchT = filterType === 'ALL' || c.content_type === filterType;
+          const matchS = !search || c.content_title.toLowerCase().includes(search.toLowerCase()) || c.creator_name.toLowerCase().includes(search.toLowerCase());
+          return matchP && matchT && matchS;
+        });
+      }, [contentList, filterPlatform, filterType, search]);
+
+      const daysInMonth = 30;
+      const startOffset = 2;
+      const cells = [];
+      for (let i = 0; i < startOffset; i++) cells.push({ blank: true, key: `b-${i}` });
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dStr = `2026-09-${String(d).padStart(2, '0')}`;
+        cells.push({ blank: false, day: d, dateStr: dStr, items: filtered.filter(c => c.publish_date === dStr), key: `d-${d}` });
+      }
+'''
+
+          new_component = '''    function ClayContentCalendar({ contentList, filterMonth, onSelectContent, onCreateNew }) {
+      const [filterPlatform, setFilterPlatform] = useState('ALL');
+      const [filterType, setFilterType] = useState('ALL');
+      const [search, setSearch] = useState('');
+
+      const filtered = useMemo(() => {
+        const normalizeDateKey = (value) => {
+          if (!value) return '';
+          const raw = String(value).trim();
+          const iso = raw.match(/^(\\d{4}-\\d{2}-\\d{2})/);
+          if (iso) return iso[1];
+          const dmy = raw.match(/^(\\d{1,2})[\\/-](\\d{1,2})[\\/-](\\d{4})/);
+          if (dmy) {
+            const [, day, month, year] = dmy;
+            return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          }
+          const parsed = new Date(raw);
+          if (!Number.isNaN(parsed.getTime())) {
+            return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+          }
+          return '';
+        };
+
+        return contentList.filter(c => {
+          const matchP = filterPlatform === 'ALL' || c.platform === filterPlatform;
+          const matchT = filterType === 'ALL' || c.content_type === filterType;
+          const title = String(c.content_title || '');
+          const creator = String(c.creator_name || '');
+          const matchS = !search || title.toLowerCase().includes(search.toLowerCase()) || creator.toLowerCase().includes(search.toLowerCase());
+          return matchP && matchT && matchS;
+        });
+      }, [contentList, filterPlatform, filterType, search]);
+
+      const [year, month] = (filterMonth || '2026-09').split('-').map(Number);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const startOffset = new Date(year, month - 1, 1).getDay();
+      const holidays = {
+        '2026-01-01': 'Tahun Baru Masehi',
+        '2026-01-16': 'Isra Mikraj Nabi Muhammad SAW',
+        '2026-02-17': 'Tahun Baru Imlek 2577 Kongzili',
+        '2026-03-19': 'Hari Suci Nyepi 1948 Saka',
+        '2026-03-21': 'Idul Fitri 1447 H',
+        '2026-03-22': 'Idul Fitri 1447 H',
+        '2026-04-03': 'Wafat Yesus Kristus',
+        '2026-04-05': 'Paskah',
+        '2026-05-01': 'Hari Buruh Internasional',
+        '2026-05-14': 'Kenaikan Yesus Kristus',
+        '2026-05-27': 'Idul Adha 1447 H',
+        '2026-05-31': 'Hari Raya Waisak 2570 BE',
+        '2026-06-01': 'Hari Lahir Pancasila',
+        '2026-06-16': 'Tahun Baru Islam 1448 H',
+        '2026-08-17': 'Proklamasi Kemerdekaan RI',
+        '2026-08-25': 'Maulid Nabi Muhammad SAW',
+        '2026-12-25': 'Kelahiran Yesus Kristus'
+      };
+      const normalizeDateKey = (value) => {
+        if (!value) return '';
+        const raw = String(value).trim();
+        const iso = raw.match(/^(\\d{4}-\\d{2}-\\d{2})/);
+        if (iso) return iso[1];
+        const dmy = raw.match(/^(\\d{1,2})[\\/-](\\d{1,2})[\\/-](\\d{4})/);
+        if (dmy) {
+          const [, day, month, year] = dmy;
+          return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+        const parsed = new Date(raw);
+        if (!Number.isNaN(parsed.getTime())) {
+          return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+        }
+        return '';
+      };
+      const cells = [];
+      for (let i = 0; i < startOffset; i++) cells.push({ blank: true, key: `b-${i}` });
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        cells.push({
+          blank: false,
+          day: d,
+          dateStr: dStr,
+          holiday: holidays[dStr],
+          items: filtered.filter(c => normalizeDateKey(c.publish_date) === dStr),
+          key: `d-${d}`
+        });
+      }
+'''
+
+          if old_component in text:
+              text = text.replace(old_component, new_component, 1)
+          elif 'function ClayContentCalendar({ contentList, filterMonth,' in text:
+              print('Calendar component already patched')
+          else:
+              raise SystemExit('calendar component block not found')
+
+          old_invocation = '''                <ClayContentCalendar
+                  contentList={contentList}
+                  onSelectContent={(item) => { setSelectedContent(item); setIsContentModalOpen(true); }}'''
+          new_invocation = '''                <ClayContentCalendar
+                  contentList={contentList}
+                  filterMonth={filterMonth}
+                  onSelectContent={(item) => { setSelectedContent(item); setIsContentModalOpen(true); }}'''
+          if new_invocation not in text:
+              if old_invocation not in text:
+                  raise SystemExit('calendar invocation not found')
+              text = text.replace(old_invocation, new_invocation, 1)
+
+          old_render = '''                    <div className="flex justify-between text-xs font-black text-slate-700">
+                      <span>{cell.day}</span>
+                      {cell.items.length > 0 && ('''
+          new_render = '''                    <div className="flex justify-between text-xs font-black text-slate-700">
+                      <span>{cell.day}</span>
+                      {cell.items.length > 0 && ('''
+          if old_render not in text:
+              raise SystemExit('calendar render anchor not found')
+
+          # Insert holiday badge immediately after the day/count row.
+          old_after_row = '''                    </div>
+                    <div className="space-y-1 overflow-y-auto max-h-[70px]">'''
+          new_after_row = '''                    </div>
+                    {cell.holiday && (
+                      <div className="mt-1 p-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-200 text-[8px] font-extrabold leading-tight" title={cell.holiday}>
+                        🇮🇩 {cell.holiday}
+                      </div>
+                    )}
+                    <div className="space-y-1 overflow-y-auto max-h-[70px]">'''
+          if new_after_row not in text:
+              if old_after_row not in text:
+                  raise SystemExit('calendar content anchor not found')
+              text = text.replace(old_after_row, new_after_row, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit calendar fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: make calendar month-aware and show national holidays"
+          git push
