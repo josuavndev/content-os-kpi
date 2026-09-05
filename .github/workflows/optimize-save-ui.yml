@@ -24,22 +24,21 @@ jobs:
           path = Path('index.html')
           text = path.read_text(encoding='utf-8')
 
-          old = '''  setContentList(prev =>
-    {
-      const existingIndex = prev.findIndex(
-        item =>
-          item.content_id === updated.content_id ||
-          item.content_id === updated.contentId
-      );
+          old = '''  setContentList(prev => {
+    const existingIndex = prev.findIndex(
+      item =>
+        item.content_id === updated.content_id ||
+        item.content_id === updated.contentId
+    );
 
-      if (existingIndex >= 0) {
-        const next = [...prev];
-        next[existingIndex] = optimisticContent;
-        return next;
-      }
+    if (existingIndex >= 0) {
+      const next = [...prev];
+      next[existingIndex] = optimisticContent;
+      return next;
+    }
 
-      return [optimisticContent, ...prev];
-    });
+    return [optimisticContent, ...prev];
+  });
 
   // Paksa React commit perubahan optimistis ke DOM sebelum request backend.
   flushSync(() => {
@@ -106,7 +105,7 @@ jobs:
   }, 0);'''
 
           if text.count(old) != 1:
-              raise SystemExit(f'Expected exactly one current save block, found {text.count(old)}')
+              raise SystemExit(f'Expected exactly one duplicate save block, found {text.count(old)}')
 
           path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
